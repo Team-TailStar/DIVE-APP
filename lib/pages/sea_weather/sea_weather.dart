@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../routes.dart';
+import '../../routes.dart';
 import '../tide/tide_page.dart';
 
 class SeaWeatherPage extends StatefulWidget {

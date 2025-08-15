@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'pages/sea_weather.dart';
+import 'pages/sea_weather/sea_weather.dart';
 
 class Routes {
   static const String home = '/';
