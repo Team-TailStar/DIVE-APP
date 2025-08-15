@@ -4,10 +4,17 @@ import 'package:intl/intl.dart';
 import 'tide_models.dart';
 import 'tide_services.dart';
 
-// ── Mock 7일치 데이터 (2025-08-14 ~ 2025-08-20) ─────────────────────────
+// ── Mock ─────────────────────────
 const _mockJson = [
   {
     "pThisDate":"2025-8-14-목-7-11",
+    "pName":"부산광역시","pArea":"1","pMul":"12물",
+    "pSun":"05:32/19:15","pMoon":"07:01/20:10",
+    "jowi1":"01:55 (6.1) ▼ -81.3","jowi2":"07:51 (6.1) ▲ +83.5",
+    "jowi3":"14:16 (6.1) ▼ -81.3","jowi4":"20:17 (6.1) ▲ +83.5"
+  },
+  {
+    "pThisDate":"2024-8-14-목-7-11",
     "pName":"부산광역시","pArea":"1","pMul":"12물",
     "pSun":"05:32/19:15","pMoon":"07:01/20:10",
     "jowi1":"01:55 (6.1) ▼ -81.3","jowi2":"07:51 (6.1) ▲ +83.5",
@@ -319,71 +326,85 @@ class _TidePageState extends State<TidePage> {
 
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
         DateTime displayedMonth = DateTime(sel.date.year, sel.date.month);
+        final h = MediaQuery.of(ctx).size.height;
 
-        return StatefulBuilder(builder: (ctx, setSheetState) {
-          final canGoPrev = !DateTime(displayedMonth.year, displayedMonth.month - 1, 1)
-              .isBefore(DateTime(first.year, first.month, 1));
-          final canGoNext = !DateTime(displayedMonth.year, displayedMonth.month + 1, 1)
-              .isAfter(DateTime(last.year, last.month, 1));
+        return SafeArea(
+          top: false,
+          child: SizedBox(
+            height: h * 0.65,
+            child: StatefulBuilder(
+              builder: (ctx, setSheetState) {
+                final canGoPrev = !DateTime(displayedMonth.year, displayedMonth.month - 1, 1)
+                    .isBefore(DateTime(first.year, first.month, 1));
+                final canGoNext = !DateTime(displayedMonth.year, displayedMonth.month + 1, 1)
+                    .isAfter(DateTime(last.year, last.month, 1));
 
-          DateTime safeInitial = DateTime(displayedMonth.year, displayedMonth.month, 15);
-          if (safeInitial.isBefore(first)) safeInitial = first;
-          if (safeInitial.isAfter(last))  safeInitial = last;
+                // initialDate 범위를 안전하게
+                DateTime safeInitial = DateTime(displayedMonth.year, displayedMonth.month, 15);
+                if (safeInitial.isBefore(first)) safeInitial = first;
+                if (safeInitial.isAfter(last))  safeInitial = last;
 
-          return SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(12, 10, 12, MediaQuery.of(ctx).padding.bottom + 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  child: Column(
                     children: [
-                      IconButton(
-                        tooltip: '이전 달',
-                        onPressed: canGoPrev
-                            ? () => setSheetState(() =>
-                        displayedMonth = DateTime(displayedMonth.year, displayedMonth.month - 1))
-                            : null,
-                        icon: const Icon(Icons.chevron_left),
+                      // 헤더
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            tooltip: '이전 달',
+                            onPressed: canGoPrev
+                                ? () => setSheetState(() => displayedMonth =
+                                DateTime(displayedMonth.year, displayedMonth.month - 1))
+                                : null,
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${displayedMonth.year}년 ${displayedMonth.month}월',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            tooltip: '다음 달',
+                            onPressed: canGoNext
+                                ? () => setSheetState(() => displayedMonth =
+                                DateTime(displayedMonth.year, displayedMonth.month + 1))
+                                : null,
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 6),
-                      Text('${displayedMonth.year}년 ${displayedMonth.month}월',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        tooltip: '다음 달',
-                        onPressed: canGoNext
-                            ? () => setSheetState(() =>
-                        displayedMonth = DateTime(displayedMonth.year, displayedMonth.month + 1))
-                            : null,
-                        icon: const Icon(Icons.chevron_right),
+                      const SizedBox(height: 4),
+
+                      // 본문: 남는 높이에 맞추기
+                      Expanded(
+                        child: CalendarDatePicker(
+                          key: ValueKey('${displayedMonth.year}-${displayedMonth.month}'),
+                          initialDate: safeInitial,
+                          firstDate: first,
+                          lastDate: last,
+                          currentDate: sel.date,
+                          onDisplayedMonthChanged: (d) =>
+                              setSheetState(() => displayedMonth = DateTime(d.year, d.month)),
+                          onDateChanged: (date) => Navigator.pop(ctx, date),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  CalendarDatePicker(
-                    key: ValueKey('${displayedMonth.year}-${displayedMonth.month}'),
-                    initialDate: safeInitial,
-                    firstDate: first,
-                    lastDate: last,
-                    currentDate: sel.date,
-                    onDisplayedMonthChanged: (d) =>
-                        setSheetState(() => displayedMonth = DateTime(d.year, d.month)),
-                    onDateChanged: (picked) => Navigator.pop(ctx, picked),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        });
+          ),
+        );
       },
     );
 
@@ -392,6 +413,7 @@ class _TidePageState extends State<TidePage> {
       if (idx != -1) setState(() => selectedIndex = idx);
     }
   }
+
   // ────────────────────────────────────────────────────────────
 
   TideDay get sel => days[selectedIndex];
@@ -403,7 +425,7 @@ class _TidePageState extends State<TidePage> {
     final title = (loading || error != null || days.isEmpty) ? '물때' : sel.regionName;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F5FF),
+      backgroundColor: const Color(0xFFEDF6FB),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -467,29 +489,41 @@ class _TidePageState extends State<TidePage> {
                 onPressed: selectedIndex > 0 ? _prev : null,
                 icon: const Icon(Icons.chevron_left),
               ),
+
+              // ⬇ 가운데 묶음: 화면 폭을 넘기면 자동으로 살짝 축소되게 FittedBox 적용
               Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _datePill('$y', onTap: _pickYear),
-                    const SizedBox(width: 10),
-                    _datePill(m, onTap: _pickMonth),
-                    const SizedBox(width: 10),
-                    _datePill(d, onTap: _pickDay),
-                    const SizedBox(width: 10),
-                    IconButton.filled(
-                      style: ButtonStyle(
-                        padding: const MaterialStatePropertyAll(EdgeInsets.all(10)),
-                        shape: MaterialStatePropertyAll(
-                          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _datePill('$y', onTap: _pickYear),
+                        const SizedBox(width: 8),
+                        _datePill(m, onTap: _pickMonth),
+                        const SizedBox(width: 8),
+                        _datePill(d, onTap: _pickDay),
+                        const SizedBox(width: 8),
+
+                        // ⬇ 달력 버튼: 크기 고정(40x40), 패딩 0
+                        IconButton(
+                          onPressed: _openCalendar,
+                          icon: const Icon(Icons.calendar_month, size: 18, color: Colors.white),
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFF1E5A7A), // 원하는 색
+                            minimumSize: const Size(40, 40),
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
-                      ),
-                      onPressed: _openCalendar,
-                      icon: const Icon(Icons.calendar_month, size: 18, color: Colors.white),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
+
               IconButton(
                 tooltip: '다음날짜',
                 onPressed: selectedIndex < days.length - 1 ? _next : null,
@@ -519,10 +553,14 @@ class _TidePageState extends State<TidePage> {
               children: [
                 Row(
                   children: [
-                    Text('$m월 $d일 $weekdayKr요일',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                    const SizedBox(width: 8),
-                    _mulPill(sel.mul),
+                    Expanded(
+                      child: Text(
+                        '$y년 $m월 $d일 $weekdayKr요일',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    _mulPill(sel.mul), // → 오른쪽 끝으로 밀림
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -558,8 +596,10 @@ class _TidePageState extends State<TidePage> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10,
-                    childAspectRatio: 1.6,
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    mainAxisExtent: 124, // ← 기기/폰트에 따라 120~140로 조절
                   ),
                   itemBuilder: (context, i) => _tideCard(sel.events[i]),
                 ),
@@ -599,7 +639,7 @@ class _TidePageState extends State<TidePage> {
 
   Widget _mulPill(String mul) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF9E6),
         borderRadius: BorderRadius.circular(20),
@@ -608,13 +648,14 @@ class _TidePageState extends State<TidePage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.brightness_5, size: 16),
-          const SizedBox(width: 4),
+          const Icon(Icons.nightlight_outlined, size: 16),
+          const SizedBox(width: 6),
           Text(mul, style: const TextStyle(fontWeight: FontWeight.w700)),
         ],
       ),
     );
   }
+
 
   Widget _sunMoonBox({
     required IconData icon,
@@ -626,7 +667,7 @@ class _TidePageState extends State<TidePage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F9FF),
+        color: const Color(0xFFEDF6FB),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -662,7 +703,7 @@ class _TidePageState extends State<TidePage> {
     final isHigh = e.type == '만조';
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F9FF),
+        color: const Color(0xFFEDF6FB),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(12),
