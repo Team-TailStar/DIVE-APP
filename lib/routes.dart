@@ -4,6 +4,7 @@ import 'pages/sea_weather/sea_weather.dart';
 class Routes {
   static const String home = '/';
   static const String regionSelect = '/region';
+  static const String tempCompare = '/temp-compare'; // 추가
 }
 
 class RouteGenerator {
@@ -12,8 +13,9 @@ class RouteGenerator {
       case Routes.home:
         return _page(const SeaWeatherPage());
       case Routes.regionSelect:
-      // Placeholder page (tap "지역 선택" goes here)
         return _page(const _DummyRegionPage());
+      case Routes.tempCompare:
+        return _page(const TempComparePage()); // 추가
       default:
         return _page(const SeaWeatherPage());
     }
