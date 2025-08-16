@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../routes.dart';
 import '../tide/tide_page.dart';
+import '../weather/weather_page.dart';
+import 'package:geolocator/geolocator.dart';
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -138,12 +140,55 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: bottomIndex,
-        onTap: (i) {
+        onTap: (i) async {
           setState(() => bottomIndex = i);
+
           if (i == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const TidePage()), // tide_page.dart의 TidePage
+              MaterialPageRoute(builder: (_) => const TidePage()),
+            );
+          } else if (i == 2) {
+            // 위치 권한 요청 & 가져오기
+            bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+            if (!serviceEnabled) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('위치 서비스가 꺼져 있습니다.')),
+              );
+              return;
+            }
+
+            LocationPermission permission = await Geolocator.checkPermission();
+            if (permission == LocationPermission.denied) {
+              permission = await Geolocator.requestPermission();
+              if (permission == LocationPermission.denied) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('위치 권한이 거부되었습니다.')),
+                );
+                return;
+              }
+            }
+
+            if (permission == LocationPermission.deniedForever) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('위치 권한이 영구적으로 거부되었습니다. 설정에서 변경하세요.')),
+              );
+              return;
+            }
+
+            // 현재 위치 가져오기
+            Position position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+            );
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => WeatherPage(
+                  lat: position.latitude,
+                  lon: position.longitude,
+                ),
+              ),
             );
           }
         },
@@ -158,6 +203,7 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         backgroundColor: Colors.white,
         elevation: 8,
       ),
+
 
     );
   }

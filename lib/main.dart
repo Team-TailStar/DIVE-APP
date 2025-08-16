@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart'; // ← 추가
 import 'routes.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ko_KR', null); // ← 로케일 데이터 로드
   runApp(const SeaWeatherApp());
 }
 
@@ -17,7 +21,7 @@ class SeaWeatherApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: const Color(0xFF6EC5FF),
         scaffoldBackgroundColor: const Color(0xFFEFF8FD),
-        fontFamily: 'Pretendard', // (optional) remove if not added
+        fontFamily: 'Pretendard',
         chipTheme: ChipThemeData(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -32,6 +36,19 @@ class SeaWeatherApp extends StatelessWidget {
           ),
         ),
       ),
+
+      // 로컬라이제이션 설정
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ko', 'KR'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('ko', 'KR'),
+
       initialRoute: Routes.home,
       onGenerateRoute: RouteGenerator.onGenerateRoute,
     );
