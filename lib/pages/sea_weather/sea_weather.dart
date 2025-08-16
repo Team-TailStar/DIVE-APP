@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../routes.dart';
-import '../tide/tide_page.dart';
+// ⬇️ AppBottomNav 경로에 맞춰 수정
 
-
+import '../app_bottom_nav.dart';
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -12,7 +12,6 @@ class SeaWeatherPage extends StatefulWidget {
 }
 
 class _SeaWeatherPageState extends State<SeaWeatherPage> {
-  int bottomIndex = 0;
   String tab = '파도'; // '파도' / '수온'
 
   @override
@@ -23,8 +22,7 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        title: const Text('바다 날씨',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+        title: const Text('바다 날씨', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
       ),
       body: SafeArea(
         child: ListView(
@@ -34,14 +32,11 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('경기 북부 앞바다',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const Text('경기 북부 앞바다', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 TextButton(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, Routes.regionSelect),
-                  child: const Text('지역 선택',
-                      style: TextStyle(fontSize: 16, color: Colors.black45)),
-                )
+                  onPressed: () => Navigator.pushNamed(context, Routes.regionSelect),
+                  child: const Text('지역 선택', style: TextStyle(fontSize: 16, color: Colors.black45)),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -70,29 +65,8 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         ),
       ),
 
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: bottomIndex,
-        onTap: (i) {
-          setState(() => bottomIndex = i);
-          if (i == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const TidePage()), // tide_page.dart의 TidePage
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.monitor_heart_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: ''),
-        ],
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        elevation: 8,
-      ),
-
+      // ⬇️ 하단 네비: AppBottomNav 사용 (현재 탭 인덱스 = 1)
+      bottomNavigationBar: const AppBottomNav(currentIndex: 1),
     );
   }
 }
@@ -111,11 +85,9 @@ class _WaveSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Center(
-          child: Text('2025.8.14 (목)',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+          child: Text('2025.8.14 (목)', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         ),
         const SizedBox(height: 16),
-
 
         // 상단 3개 카드
         Container(
@@ -178,8 +150,7 @@ class _WaveSection extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: TextButton(
             onPressed: null,
-            child: const Text('더보기',
-                style: TextStyle(color: Colors.black26, fontWeight: FontWeight.w600)),
+            child: const Text('더보기', style: TextStyle(color: Colors.black26, fontWeight: FontWeight.w600)),
           ),
         ),
       ],
@@ -226,7 +197,7 @@ class _ValuePill extends StatelessWidget {
 }
 
 /* -----------------------
- *  수온 섹션 (기존)
+ *  수온 섹션
  * ----------------------*/
 class _TempSection extends StatefulWidget {
   const _TempSection();
@@ -244,8 +215,7 @@ class _TempSectionState extends State<_TempSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Center(
-          child: Text('2025.8.14 (목)',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+          child: Text('2025.8.14 (목)', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         ),
         const SizedBox(height: 16),
 
@@ -265,12 +235,9 @@ class _TempSectionState extends State<_TempSection> {
                   child: Row(
                     children: const [
                       Expanded(
-                        child: Text('경기 북부 앞바다\n현재 수온 :',
-                            style: TextStyle(fontWeight: FontWeight.w700, height: 1.2)),
+                        child: Text('경기 북부 앞바다\n현재 수온 :', style: TextStyle(fontWeight: FontWeight.w700, height: 1.2)),
                       ),
-                      Text('26.9°C',
-                          style: TextStyle(
-                              color: Colors.red, fontWeight: FontWeight.w900, fontSize: 18)),
+                      Text('26.9°C', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w900, fontSize: 18)),
                     ],
                   ),
                 ),
@@ -288,8 +255,7 @@ class _TempSectionState extends State<_TempSection> {
                 const SizedBox(height: 8),
                 const Align(
                   alignment: Alignment.centerRight,
-                  child: Text('최근 업데이트 : 2025.8.14 11:00 A.M.',
-                      style: TextStyle(color: Colors.black54, fontSize: 12)),
+                  child: Text('최근 업데이트 : 2025.8.14 11:00 A.M.', style: TextStyle(color: Colors.black54, fontSize: 12)),
                 ),
                 const SizedBox(height: 8),
                 Center(
@@ -297,11 +263,7 @@ class _TempSectionState extends State<_TempSection> {
                     onTap: () => Navigator.pushNamed(context, Routes.tempCompare),
                     child: const Text(
                       '인근 바다와 수온 비교해보기',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.underline,
-                      ),
+                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
                     ),
                   ),
                 ),
@@ -311,8 +273,7 @@ class _TempSectionState extends State<_TempSection> {
         ),
 
         const SizedBox(height: 18),
-        const Text('최근 경기 북부 앞바다 수온',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text('최근 경기 북부 앞바다 수온', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
 
         Row(
@@ -366,7 +327,7 @@ class _TempSectionState extends State<_TempSection> {
 }
 
 /* -----------------------
- *  인근 바다 수온 비교 페이지 (기존)
+ *  인근 바다 수온 비교 페이지
  * ----------------------*/
 class TempComparePage extends StatelessWidget {
   const TempComparePage({super.key});
@@ -375,12 +336,7 @@ class TempComparePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = List.generate(
       8,
-          (i) => const _CompareRow(
-        place: '인천',
-        trendUp: true,
-        temp: '26.9°C',
-        dist: '0.8㎞',
-      ),
+          (i) => const _CompareRow(place: '인천', trendUp: true, temp: '26.9°C', dist: '0.8㎞'),
     );
 
     return Scaffold(
@@ -391,10 +347,7 @@ class TempComparePage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
-          const Center(
-            child: Text('2025.8.14 (목)',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-          ),
+          const Center(child: Text('2025.8.14 (목)', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
           const SizedBox(height: 12),
           Container(
             decoration: const BoxDecoration(
@@ -407,37 +360,25 @@ class TempComparePage extends StatelessWidget {
                 const SizedBox(height: 14),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text('인근 바다와 수온 비교',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  child: Text('인근 바다와 수온 비교', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                 ),
                 const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
                   child: _CompareHeader(),
                 ),
                 const SizedBox(height: 8),
-                ...rows.map((e) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: e,
-                )),
+                ...rows.map(
+                      (e) => Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: e),
+                ),
                 const SizedBox(height: 16),
               ],
             ),
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        onTap: (_) {},
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.monitor_heart_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: ''),
-        ],
-        type: BottomNavigationBarType.fixed,
-      ),
+      // 이 페이지는 AppBottomNav를 사용하지 않는다면 기존처럼 유지해도 OK
+      bottomNavigationBar: const AppBottomNav(currentIndex: 1),
     );
   }
 }
@@ -450,11 +391,7 @@ class _SelectableChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _SelectableChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  const _SelectableChip({required this.label, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -467,10 +404,7 @@ class _SelectableChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? cs.primary.withOpacity(0.2) : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? cs.primary : Colors.black12,
-            width: selected ? 1.4 : 1,
-          ),
+          border: Border.all(color: selected ? cs.primary : Colors.black12, width: selected ? 1.4 : 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -479,13 +413,7 @@ class _SelectableChip extends StatelessWidget {
               Icon(Icons.check, size: 16, color: cs.primary),
               const SizedBox(width: 6),
             ],
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: selected ? cs.primary : Colors.black87,
-              ),
-            ),
+            Text(label, style: TextStyle(fontWeight: FontWeight.w700, color: selected ? cs.primary : Colors.black87)),
           ],
         ),
       ),
@@ -499,25 +427,16 @@ class _ForecastRowData {
   final String period; // 파주기
   final String height; // 파고
   final String dir; // 파향
-  const _ForecastRowData({
-    required this.date,
-    required this.amPm,
-    required this.period,
-    required this.height,
-    required this.dir,
-  });
+  const _ForecastRowData({required this.date, required this.amPm, required this.period, required this.height, required this.dir});
 }
 
-/// 헤더 + 날짜별 카드 리스트
 class _ForecastBlock extends StatelessWidget {
   final List<_ForecastRowData> rows;
   const _ForecastBlock({required this.rows});
 
   @override
   Widget build(BuildContext context) {
-    const headerStyle = TextStyle(
-      fontWeight: FontWeight.w800, color: Colors.black54,
-    );
+    const headerStyle = TextStyle(fontWeight: FontWeight.w800, color: Colors.black54);
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -525,43 +444,19 @@ class _ForecastBlock extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
         child: Column(
           children: [
-            // 헤더: flex 합을 본문과 동일하게 맞춤 (8/4/3/4)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE9F5FF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              // 기존 Row(...) 를 아래로 교체
+              decoration: BoxDecoration(color: const Color(0xFFE9F5FF), borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: const [
                   Expanded(flex: 8, child: Text('날짜', style: headerStyle)),
-                  Expanded(
-                    flex: 4,
-                    child: Padding(
-                      padding: EdgeInsets.only(left: 10),
-                      child: Text('파주기', style: headerStyle),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Padding(
-                      padding: EdgeInsets.only(left: 14),
-                      child: Text('파고', style: headerStyle),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 4,
-                    child: Padding(
-                      padding: EdgeInsets.only(left: 14),
-                      child: Text('파향', style: headerStyle),
-                    ),
-                  ),
+                  Expanded(flex: 4, child: Padding(padding: EdgeInsets.only(left: 10), child: Text('파주기', style: headerStyle))),
+                  Expanded(flex: 3, child: Padding(padding: EdgeInsets.only(left: 14), child: Text('파고', style: headerStyle))),
+                  Expanded(flex: 4, child: Padding(padding: EdgeInsets.only(left: 14), child: Text('파향', style: headerStyle))),
                 ],
               ),
             ),
             const SizedBox(height: 12),
-
             ..._buildGrouped(rows),
           ],
         ),
@@ -590,38 +485,25 @@ class _ForecastBlock extends StatelessWidget {
     flush();
     return cards;
   }
-
-  Widget _h(String t, {required int flex, TextStyle? style}) =>
-      Expanded(flex: flex, child: Text(t, style: style));
 }
 
 class _ForecastCard extends StatelessWidget {
   final String date;
   final List<_ForecastRowData> items;
 
-  const _ForecastCard({
-    super.key,
-    required this.date,
-    required this.items,
-  });
+  const _ForecastCard({super.key, required this.date, required this.items});
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = TextStyle(
-      fontWeight: FontWeight.w800, color: Colors.black.withOpacity(0.85),
-    );
+    final labelStyle = TextStyle(fontWeight: FontWeight.w800, color: Colors.black.withOpacity(0.85));
 
-    Widget _colTexts(List<String> v) => Column(
+    Widget colTexts(List<String> v) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: List.generate(
         v.length,
             (i) => Padding(
           padding: EdgeInsets.only(bottom: i == v.length - 1 ? 0 : 12),
-          child: Text(
-            v[i],
-            overflow: TextOverflow.ellipsis, // 안전장치
-            softWrap: false,
-          ),
+          child: Text(v[i], overflow: TextOverflow.ellipsis, softWrap: false),
         ),
       ),
     );
@@ -629,26 +511,17 @@ class _ForecastCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD7E9FF)),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFD7E9FF))),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 날짜 + 오전/오후 칩
           Expanded(
-            flex: 8, // ← 넓혀서 오버플로우 여지 감소
+            flex: 8,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(
-                  width: 72, // ← 폭 축소
-                  child: Center(child: Text(date, style: labelStyle)),
-                ),
+                SizedBox(width: 72, child: Center(child: Text(date, style: labelStyle))),
                 const SizedBox(width: 12),
-                // 칩 열
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -656,40 +529,16 @@ class _ForecastCard extends StatelessWidget {
                     items.length,
                         (i) => Padding(
                       padding: EdgeInsets.only(bottom: i == items.length - 1 ? 0 : 12),
-                      child: _AmPmChip(
-                        text: items[i].amPm,
-                        isAm: items[i].amPm == '오전',
-                      ),
+                      child: _AmPmChip(text: items[i].amPm, isAm: items[i].amPm == '오전'),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-
-          // 파주기 / 파고 / 파향
-          // _ForecastCard.build() 안의 Row에서 (2) 파주기 / 파고 / 파향 부분 교체
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 10), // ← 여백 추가
-              child: _colTexts(items.map((e) => e.period).toList()),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 14), // ← 여백 추가
-              child: _colTexts(items.map((e) => e.height).toList()),
-            ),
-          ),
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 14), // ← 여백 추가
-              child: _colTexts(items.map((e) => e.dir).toList()),
-            ),
-          ),
+          Expanded(flex: 4, child: Padding(padding: const EdgeInsets.only(left: 10), child: colTexts(items.map((e) => e.period).toList()))),
+          Expanded(flex: 3, child: Padding(padding: const EdgeInsets.only(left: 14), child: colTexts(items.map((e) => e.height).toList()))),
+          Expanded(flex: 4, child: Padding(padding: const EdgeInsets.only(left: 14), child: colTexts(items.map((e) => e.dir).toList()))),
         ],
       ),
     );
@@ -706,42 +555,28 @@ class _AmPmChip extends StatelessWidget {
     final bg = isAm ? const Color(0xFFFFE6E6) : const Color(0xFFE7F0FF);
     final fg = isAm ? const Color(0xFFCC3A3A) : const Color(0xFF3056D3);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), // ← 살짝 줄임
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
-      child: Text(
-        text,
-        style: TextStyle(fontWeight: FontWeight.w700, color: fg),
-      ),
+      child: Text(text, style: TextStyle(fontWeight: FontWeight.w700, color: fg)),
     );
   }
 }
 
 /* ---- 수온 표/비교용 컴포넌트 ---- */
-
 class _TempRow extends StatelessWidget {
   final String date;
   final String obs;   // 관측시간
   final String minT;  // 현재(대신 사용)
   final String maxT;  // 최고시간
   final String rec;   // 최고온도
-  const _TempRow({
-    required this.date,
-    required this.obs,
-    required this.minT,
-    required this.maxT,
-    required this.rec,
-  });
+  const _TempRow({required this.date, required this.obs, required this.minT, required this.maxT, required this.rec});
 
   @override
   Widget build(BuildContext context) {
-    final chip = (String t) => Container(
+    Widget chip(String t) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF0F0),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(t,
-          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
+      decoration: BoxDecoration(color: const Color(0xFFFFF0F0), borderRadius: BorderRadius.circular(10)),
+      child: Text(t, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
     );
 
     return Padding(
@@ -760,6 +595,8 @@ class _TempRow extends StatelessWidget {
 }
 
 class _CompareHeader extends StatelessWidget {
+  const _CompareHeader();
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -780,30 +617,20 @@ class _CompareRow extends StatelessWidget {
   final String temp;
   final String dist;
 
-  const _CompareRow({
-    required this.place,
-    required this.trendUp,
-    required this.temp,
-    required this.dist,
-  });
+  const _CompareRow({required this.place, required this.trendUp, required this.temp, required this.dist});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE9EEF3)),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE9EEF3))),
       child: Row(
         children: [
           Expanded(flex: 5, child: Text(place, style: const TextStyle(fontWeight: FontWeight.w700))),
           Expanded(
             flex: 3,
             child: Center(
-              child: Icon(trendUp ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                  color: trendUp ? Colors.red : Colors.blue),
+              child: Icon(trendUp ? Icons.arrow_drop_up : Icons.arrow_drop_down, color: trendUp ? Colors.red : Colors.blue),
             ),
           ),
           Expanded(flex: 4, child: Center(child: _tempPill(text: temp))),
@@ -829,10 +656,7 @@ class _CompareRow extends StatelessWidget {
   static Widget _tempPill({required String text}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF0F0),
-        borderRadius: BorderRadius.circular(10),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFFFF0F0), borderRadius: BorderRadius.circular(10)),
       child: Text(text, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
     );
   }
@@ -845,9 +669,16 @@ class _MiniLineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _MiniLinePainter(secondary: secondary),
-      size: Size.infinite,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double w = constraints.maxWidth.isFinite ? constraints.maxWidth : 300.0;
+        final double h = constraints.maxHeight.isFinite ? constraints.maxHeight : 150.0;
+
+        return CustomPaint(
+          size: Size(w, h),
+          painter: _MiniLinePainter(secondary: secondary),
+        );
+      },
     );
   }
 }
@@ -876,7 +707,11 @@ class _MiniLinePainter extends CustomPainter {
       final wave = (i % 4 < 2 ? 1 - (i % 2) * 0.5 : 0.5);
       final x = size.width * (i / 20);
       final y = size.height * (0.7 - 0.2 * wave);
-      if (i == 0) path1.moveTo(x, y); else path1.lineTo(x, y);
+      if (i == 0) {
+        path1.moveTo(x, y);
+      } else {
+        path1.lineTo(x, y);
+      }
     }
     canvas.drawPath(path1, p1);
 
@@ -890,13 +725,16 @@ class _MiniLinePainter extends CustomPainter {
         final wave = (i % 4 < 2 ? 1 - (i % 2) * 0.4 : 0.4);
         final x = size.width * (i / 20);
         final y = size.height * (0.6 - 0.22 * wave);
-        if (i == 0) path2.moveTo(x, y); else path2.lineTo(x, y);
+        if (i == 0) {
+          path2.moveTo(x, y);
+        } else {
+          path2.lineTo(x, y);
+        }
       }
       canvas.drawPath(path2, p2);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _MiniLinePainter oldDelegate) =>
-      oldDelegate.secondary != secondary;
+  bool shouldRepaint(covariant _MiniLinePainter oldDelegate) => oldDelegate.secondary != secondary;
 }
