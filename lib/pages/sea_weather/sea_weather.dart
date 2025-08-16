@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../routes.dart';
+<<<<<<< HEAD
+=======
+import '../tide/tide_page.dart';
+>>>>>>> origin/develop
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -67,10 +71,17 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         ),
       ),
 
-      // 하단 탭
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: bottomIndex,
-        onTap: (i) => setState(() => bottomIndex = i),
+        onTap: (i) {
+          setState(() => bottomIndex = i);
+          if (i == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TidePage()), // tide_page.dart의 TidePage
+            );
+          }
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: ''),
           BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: ''),
@@ -82,6 +93,7 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         backgroundColor: Colors.white,
         elevation: 8,
       ),
+
     );
   }
 }
