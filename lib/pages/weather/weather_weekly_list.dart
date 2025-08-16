@@ -8,11 +8,23 @@ import 'air_quality_service.dart'; // AirQualitySummary
 class WeatherWeeklyList extends StatelessWidget {
   final List<Day7Item> all;
   final AirQualitySummary? air; // ← 주간 카드에 붙일 대기질 요약(옵션)
-  const WeatherWeeklyList({super.key, required this.all, this.air});
+  final DateTime startDate;           // 주간 시작일(오늘 00:00 or 다음 주 00:00)
+  final String title;                 // 헤더 타이틀 (This Week / Next Week)
+  final DateTime? highlightDate;      // 강조할 날짜(이번 주: 오늘 / 다음 주: 시작일)
+  WeatherWeeklyList({
+    super.key,
+    required this.all,
+    this.air,
+    DateTime? startDate,
+    this.title = 'This Week',
+    this.highlightDate,
+  }) : startDate = startDate ?? DateTime.now();
 
   @override
   Widget build(BuildContext context) {
-    final days = _aggregate(all);
+    final days = _aggregate(all, startDate);
+    final headerDate = highlightDate ?? startDate;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -21,30 +33,38 @@ class WeatherWeeklyList extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 6),
           child: Row(
             children: [
-              const Text('This Week',
+              Text(title,
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
               const Spacer(),
               Text(
-                DateFormat('M월 d일 (E)', 'ko_KR').format(DateTime.now()),
+                DateFormat('M월 d일 (E)', 'ko_KR').format(headerDate),
                 style: const TextStyle(color: Colors.white70, fontSize: 12),
               ),
             ],
           ),
         ),
         const SizedBox(height: 8),
-        ...days.map((d) => _DayCard(d: d, air: air)).toList(),
+        ...days.map((d) {
+          final shouldHighlight =  highlightDate != null && _sameDate(d.date, highlightDate!);
+          return _DayCard(d: d, air: air, highlight: shouldHighlight); // CHANGE
+        }).toList(),
       ],
     );
   }
+  bool _sameDate(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+  List<_DailyAgg> _aggregate(List<Day7Item> src, DateTime rangeStart) {
+    final start0 = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
+    final end = start0.add(const Duration(days: 7));
 
-  // 3시간 간격 데이터를 날짜별로 묶어서 일일 요약 만들기
-  List<_DailyAgg> _aggregate(List<Day7Item> src) {
     final map = <String, List<Day7Item>>{};
     for (final it in src) {
       final t = it.time;
+      if (t.isBefore(start0) || !t.isBefore(end)) continue;
       final key = DateFormat('yyyy-MM-dd').format(t);
       (map[key] ??= []).add(it);
     }
+
 
     final result = <_DailyAgg>[];
     final keys = map.keys.toList()..sort();
@@ -56,6 +76,18 @@ class WeatherWeeklyList extends StatelessWidget {
       String sky = '맑음', skyCode = '1';
 
       for (final e in list) {
+        final t = e.tempC;
+        if (t < minT) minT = t;
+        if (t > maxT) maxT = t;
+        wind += e.windSpd ?? 0;
+        hum += e.humidity ?? 0;
+
+        // 가장 큰 강수확률 채택
+        final rp = e.rainProb ?? 0;
+        if (rp > rainProb) rainProb = rp;
+
+        skyCount[e.sky] = (skyCount[e.sky] ?? 0) + 1;
+      }for (final e in list) {
         final t = e.tempC;
         if (t < minT) minT = t;
         if (t > maxT) maxT = t;
@@ -110,7 +142,8 @@ class _DailyAgg {
 class _DayCard extends StatelessWidget {
   final _DailyAgg d;
   final AirQualitySummary? air;
-  const _DayCard({required this.d, this.air});
+  final bool highlight;
+  const _DayCard({required this.d, this.air, this.highlight = false});
 
   Color _gradeColor(String g) {
     if (g.contains('매우')) return const Color(0xFFFF6B6B);
@@ -122,13 +155,21 @@ class _DayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = highlight ? Colors.white.withOpacity(.45) : Colors.white.withOpacity(.28);
+    final border = highlight ? const Color(0xFFFFFFFF) : Colors.transparent;
+    final shadow = highlight
+        ? [BoxShadow(color: Colors.black.withOpacity(.10), blurRadius: 10, offset: const Offset(0, 4))]
+        : <BoxShadow>[];
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.28),
+        color: bg,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border, width: 1.2),
+        boxShadow: shadow,
       ),
+
       child: Column(
         children: [
           // 상단: 요일/날짜 + 최고/최저

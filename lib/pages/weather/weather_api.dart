@@ -67,11 +67,11 @@ class WeatherApi {
     if (_useMock) {
       final now = DateTime.now();
       final List<Day7Item> items = [];
+      final today0 = DateTime(now.year, now.month, now.day);
 
-      // 7일 × 3시간 간격 샘플 생성
-      for (int d = 0; d < 7; d++) {
+      for (int d = -3; d <= 3; d++) {
         for (int h = 0; h < 24; h += 3) {
-          final t = DateTime(now.year, now.month, now.day + d, h);
+          final t = today0.add(Duration(days: d, hours: h));
           items.add(
             Day7Item(
               time: t,
@@ -79,12 +79,10 @@ class WeatherApi {
               skyCode: (h < 12) ? '1' : '2',
               rainProb: (h == 15 && d.isEven) ? 30 : 0,
               rainAmtMm: (h == 15 && d.isEven) ? 1.2 : 0.0,
-              tempC: 24.0 + d + (h / 6),
-              // 대충 오르는 곡선
-              humidity: 60 + (h % 4) * 5,
-              // 60~75
+              tempC: 24.0 + d + (h / 6),      // 대충 변하는 온도
+              humidity: 60 + (h % 4) * 5,     // 60~75
               windDir: 'S',
-              windSpd: 1.5 + d * 0.3,
+              windSpd: 1.5 + d * 0.3,         // -3일도 자연스럽게
               wavePrd: 6.0 + (h % 5) * 0.3,
               waveHt: 0.3 + (h % 6) * 0.05,
               waveDir: 'S',

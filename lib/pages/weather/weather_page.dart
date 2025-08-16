@@ -116,13 +116,19 @@ class _WeatherPageState extends State<WeatherPage> {
                                   return WeatherHourlyList(all: list, tab: _tab);
                                 }
 
-                                // 이번 주: 대기질 요약을 배지로 전달(로딩 중이어도 null 허용)
+                                final nowDt = DateTime.now();
+                                final today0 = DateTime(nowDt.year, nowDt.month, nowDt.day);
+                                final rangeStart = today0.subtract(const Duration(days: 3));
+
                                 return FutureBuilder<AirQualitySummary>(
                                   future: AirQualityService.fetchSummary(city: now.city),
                                   builder: (context, aq) {
                                     return WeatherWeeklyList(
                                       all: list,
-                                      air: aq.data, // null이어도 내부에서 안전 처리
+                                      air: aq.data,
+                                      title: 'This Week',
+                                      startDate: rangeStart,
+                                      highlightDate: today0,
                                     );
                                   },
                                 );
