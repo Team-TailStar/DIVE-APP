@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../routes.dart';
-import '../tide/tide_page.dart';
-import '../weather/weather_page.dart';
-import 'package:geolocator/geolocator.dart';
+// ⬇️ AppBottomNav 경로에 맞춰 수정
+
+import '../app_bottom_nav.dart';
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -12,23 +12,17 @@ class SeaWeatherPage extends StatefulWidget {
 }
 
 class _SeaWeatherPageState extends State<SeaWeatherPage> {
-  int bottomIndex = 0;
-  String tab = '파도';
+  String tab = '파도'; // '파도' / '수온'
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        title: const Text(
-          '바다 날씨',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-        ),
+        title: const Text('바다 날씨', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
       ),
       body: SafeArea(
         child: ListView(
@@ -38,19 +32,16 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '경기 북부 앞바다',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
+                const Text('경기 북부 앞바다', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 TextButton(
                   onPressed: () => Navigator.pushNamed(context, Routes.regionSelect),
-                  child: const Text('지역 선택', style: TextStyle(fontSize: 16)),
+                  child: const Text('지역 선택', style: TextStyle(fontSize: 16, color: Colors.black45)),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Segmented tabs (파도 / 수온)
+            // 탭
             Row(
               children: [
                 _SelectableChip(
@@ -66,163 +57,341 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 20),
 
-            const SizedBox(height: 24),
-
-            // 날짜
-            const Center(
-              child: Text(
-                '2025.8.14 (목)',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // 카드 3개 (파주기/파고/파향)
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    title: '파주기',
-                    icon: Icons.show_chart,
-                    value: '0.5-1.5 s',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    title: '파고',
-                    icon: Icons.tsunami, // requires Material Icons v (Flutter >=3.7)
-                    value: '0.5 m',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    title: '파향',
-                    icon: Icons.explore,
-                    value: '서남-서',
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 28),
-
-            const Text(
-              '파도 예측',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-
-            _ForecastTable(
-              rows: const [
-                _ForecastRowData(date: '8.15 (금)', amPm: '오전', period: '0.5-1.5(s)', height: '0.8(m)', dir: '서남-서'),
-                _ForecastRowData(date: '8.15 (금)', amPm: '오후', period: '0.5-1.5(s)', height: '0.8(m)', dir: '서남-서'),
-                _ForecastRowData(date: '8.16 (토)', amPm: '오전', period: '0.5-1.5(s)', height: '0.8(m)', dir: '서남-서'),
-                _ForecastRowData(date: '8.16 (토)', amPm: '오후', period: '0.5-1.5(s)', height: '0.8(m)', dir: '서남-서'),
-                _ForecastRowData(date: '8.17 (일)', amPm: '오전', period: '0.5-1.5(s)', height: '0.8(m)', dir: '서남-서'),
-                _ForecastRowData(date: '8.17 (일)', amPm: '오후', period: '0.5-1.5(s)', height: '0.8(m)', dir: '서남-서'),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () {},
-                child: const Text('더보기'),
-              ),
-            ),
+            // 컨텐츠
+            if (tab == '파도') const _WaveSection() else const _TempSection(),
           ],
         ),
       ),
 
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: bottomIndex,
-        onTap: (i) async {
-          setState(() => bottomIndex = i);
-
-          if (i == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const TidePage()),
-            );
-          } else if (i == 2) {
-            // 위치 권한 요청 & 가져오기
-            bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-            if (!serviceEnabled) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('위치 서비스가 꺼져 있습니다.')),
-              );
-              return;
-            }
-
-            LocationPermission permission = await Geolocator.checkPermission();
-            if (permission == LocationPermission.denied) {
-              permission = await Geolocator.requestPermission();
-              if (permission == LocationPermission.denied) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('위치 권한이 거부되었습니다.')),
-                );
-                return;
-              }
-            }
-
-            if (permission == LocationPermission.deniedForever) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('위치 권한이 영구적으로 거부되었습니다. 설정에서 변경하세요.')),
-              );
-              return;
-            }
-
-            // 현재 위치 가져오기
-            Position position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
-            );
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => WeatherPage(
-                  lat: position.latitude,
-                  lon: position.longitude,
-                ),
-              ),
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.monitor_heart_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: ''),
-        ],
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        elevation: 8,
-      ),
-
-
+      // ⬇️ 하단 네비: AppBottomNav 사용 (현재 탭 인덱스 = 1)
+      bottomNavigationBar: const AppBottomNav(currentIndex: 1),
     );
   }
 }
 
-/// ------------------------
-/// Widgets
-/// ------------------------
+/* -----------------------
+ *  파도 섹션
+ * ----------------------*/
+class _WaveSection extends StatelessWidget {
+  const _WaveSection();
 
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Center(
+          child: Text('2025.8.14 (목)', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(height: 16),
+
+        // 상단 3개 카드
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE9EEF3)),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          child: Column(
+            children: [
+              Row(
+                children: const [
+                  Expanded(child: Center(child: Text('파주기', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black54)))),
+                  Expanded(child: Center(child: Text('파고', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black54)))),
+                  Expanded(child: Center(child: Text('파향', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black54)))),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: _IconBox(cs: cs, icon: Icons.ssid_chart)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _IconBox(cs: cs, icon: Icons.tsunami)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _IconBox(cs: cs, icon: Icons.explore)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: const [
+                  Expanded(child: _ValuePill(text: '0.5-1.5 s')),
+                  SizedBox(width: 10),
+                  Expanded(child: _ValuePill(text: '0.5 m')),
+                  SizedBox(width: 10),
+                  Expanded(child: _ValuePill(text: '서남-서')),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 24),
+        const Text('파도 예측', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
+
+        _ForecastBlock(
+          rows: const [
+            _ForecastRowData(date: '8.15 (금)', amPm: '오전', period: '0.5–1.5 s', height: '0.8 m', dir: '서남–서'),
+            _ForecastRowData(date: '8.15 (금)', amPm: '오후', period: '0.6–1.4 s', height: '0.7 m', dir: '서'),
+            _ForecastRowData(date: '8.16 (토)', amPm: '오전', period: '0.5–1.6 s', height: '0.9 m', dir: '서남'),
+            _ForecastRowData(date: '8.16 (토)', amPm: '오후', period: '0.7–1.8 s', height: '1.0 m', dir: '서북–서'),
+            _ForecastRowData(date: '8.17 (일)', amPm: '오전', period: '0.4–1.2 s', height: '0.6 m', dir: '서'),
+            _ForecastRowData(date: '8.17 (일)', amPm: '오후', period: '0.6–1.3 s', height: '0.7 m', dir: '서남'),
+          ],
+        ),
+        const SizedBox(height: 6),
+
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: null,
+            child: const Text('더보기', style: TextStyle(color: Colors.black26, fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _IconBox extends StatelessWidget {
+  final ColorScheme cs;
+  final IconData icon;
+  const _IconBox({required this.cs, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 68,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.primary.withOpacity(0.35)),
+      ),
+      child: Center(child: Icon(icon, size: 34, color: cs.primary)),
+    );
+  }
+}
+
+class _ValuePill extends StatelessWidget {
+  final String text;
+  const _ValuePill({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1FAFF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+      ),
+    );
+  }
+}
+
+/* -----------------------
+ *  수온 섹션
+ * ----------------------*/
+class _TempSection extends StatefulWidget {
+  const _TempSection();
+
+  @override
+  State<_TempSection> createState() => _TempSectionState();
+}
+
+class _TempSectionState extends State<_TempSection> {
+  String mode = '그래프'; // '그래프' / '표'
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Center(
+          child: Text('2025.8.14 (목)', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(height: 16),
+
+        Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1FAFF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: const [
+                      Expanded(
+                        child: Text('경기 북부 앞바다\n현재 수온 :', style: TextStyle(fontWeight: FontWeight.w700, height: 1.2)),
+                      ),
+                      Text('26.9°C', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w900, fontSize: 18)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 140,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF6FBFF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const _MiniLineChart(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Text('최근 업데이트 : 2025.8.14 11:00 A.M.', style: TextStyle(color: Colors.black54, fontSize: 12)),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, Routes.tempCompare),
+                    child: const Text(
+                      '인근 바다와 수온 비교해보기',
+                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 18),
+        const Text('최근 경기 북부 앞바다 수온', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 10),
+
+        Row(
+          children: [
+            _SelectableChip(
+              label: '그래프',
+              selected: mode == '그래프',
+              onTap: () => setState(() => mode = '그래프'),
+            ),
+            const SizedBox(width: 8),
+            _SelectableChip(
+              label: '표',
+              selected: mode == '표',
+              onTap: () => setState(() => mode = '표'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (mode == '그래프')
+          SizedBox(
+            height: 180,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9F5FF),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: _MiniLineChart(secondary: true),
+              ),
+            ),
+          )
+        else
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Column(
+                children: const [
+                  _TempRow(date: '8.13 (수)', obs: '23:00', minT: '26.9°C', maxT: '12:00', rec: '26.9°C'),
+                  _TempRow(date: '8.12 (화)', obs: '23:00', minT: '26.9°C', maxT: '12:00', rec: '26.9°C'),
+                  _TempRow(date: '8.11 (월)', obs: '23:00', minT: '26.7°C', maxT: '12:00', rec: '26.8°C'),
+                  _TempRow(date: '8.10 (일)', obs: '23:00', minT: '26.5°C', maxT: '12:00', rec: '26.6°C'),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/* -----------------------
+ *  인근 바다 수온 비교 페이지
+ * ----------------------*/
+class TempComparePage extends StatelessWidget {
+  const TempComparePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = List.generate(
+      8,
+          (i) => const _CompareRow(place: '인천', trendUp: true, temp: '26.9°C', dist: '0.8㎞'),
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('바다 날씨'),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        children: [
+          const Center(child: Text('2025.8.14 (목)', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
+          const SizedBox(height: 12),
+          Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 14),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('인근 바다와 수온 비교', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                ),
+                const SizedBox(height: 10),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: _CompareHeader(),
+                ),
+                const SizedBox(height: 8),
+                ...rows.map(
+                      (e) => Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: e),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ],
+      ),
+      // 이 페이지는 AppBottomNav를 사용하지 않는다면 기존처럼 유지해도 OK
+      bottomNavigationBar: const AppBottomNav(currentIndex: 1),
+    );
+  }
+}
+
+/* -----------------------
+ *  공용 위젯들
+ * ----------------------*/
 class _SelectableChip extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _SelectableChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  const _SelectableChip({required this.label, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -230,15 +399,12 @@ class _SelectableChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? cs.primary.withOpacity(0.2) : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? cs.primary : Colors.black12,
-            width: selected ? 1.4 : 1,
-          ),
+          border: Border.all(color: selected ? cs.primary : Colors.black12, width: selected ? 1.4 : 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -247,61 +413,7 @@ class _SelectableChip extends StatelessWidget {
               Icon(Icons.check, size: 16, color: cs.primary),
               const SizedBox(width: 6),
             ],
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: selected ? cs.primary : Colors.black87,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final String value;
-  const _StatCard({required this.title, required this.icon, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title,
-                style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black54)),
-            const SizedBox(height: 8),
-            Container(
-              height: 64,
-              decoration: BoxDecoration(
-                color: cs.primary.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.primary.withOpacity(0.25)),
-              ),
-              child: Center(
-                child: Icon(icon, size: 34, color: cs.primary),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1FAFF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                value,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-              ),
-            ),
+            Text(label, style: TextStyle(fontWeight: FontWeight.w700, color: selected ? cs.primary : Colors.black87)),
           ],
         ),
       ),
@@ -315,52 +427,44 @@ class _ForecastRowData {
   final String period; // 파주기
   final String height; // 파고
   final String dir; // 파향
-  const _ForecastRowData({
-    required this.date,
-    required this.amPm,
-    required this.period,
-    required this.height,
-    required this.dir,
-  });
+  const _ForecastRowData({required this.date, required this.amPm, required this.period, required this.height, required this.dir});
 }
 
-class _ForecastTable extends StatelessWidget {
+class _ForecastBlock extends StatelessWidget {
   final List<_ForecastRowData> rows;
-  const _ForecastTable({required this.rows});
+  const _ForecastBlock({required this.rows});
 
   @override
   Widget build(BuildContext context) {
-    final headerStyle =
-    TextStyle(fontWeight: FontWeight.w800, color: Colors.black.withOpacity(0.6));
+    const headerStyle = TextStyle(fontWeight: FontWeight.w800, color: Colors.black54);
 
-    return Column(
-      children: [
-        // header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              _h('날짜', flex: 4, style: headerStyle),
-              _h('파주기', flex: 4, style: headerStyle),
-              _h('파고', flex: 3, style: headerStyle),
-              _h('파향', flex: 4, style: headerStyle),
-            ],
-          ),
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(color: const Color(0xFFE9F5FF), borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: const [
+                  Expanded(flex: 8, child: Text('날짜', style: headerStyle)),
+                  Expanded(flex: 4, child: Padding(padding: EdgeInsets.only(left: 10), child: Text('파주기', style: headerStyle))),
+                  Expanded(flex: 3, child: Padding(padding: EdgeInsets.only(left: 14), child: Text('파고', style: headerStyle))),
+                  Expanded(flex: 4, child: Padding(padding: EdgeInsets.only(left: 14), child: Text('파향', style: headerStyle))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            ..._buildGrouped(rows),
+          ],
         ),
-        const SizedBox(height: 8),
-
-        // body
-        ..._buildGrouped(rows),
-      ],
+      ),
     );
   }
 
   List<Widget> _buildGrouped(List<_ForecastRowData> rows) {
-    // group by date like the mock (date shown once, AM/PM rows inside a card)
     final List<Widget> cards = [];
     String? currentDate;
     List<_ForecastRowData> bucket = [];
@@ -381,57 +485,61 @@ class _ForecastTable extends StatelessWidget {
     flush();
     return cards;
   }
-
-  Widget _h(String t, {required int flex, TextStyle? style}) =>
-      Expanded(flex: flex, child: Text(t, style: style));
 }
 
 class _ForecastCard extends StatelessWidget {
   final String date;
   final List<_ForecastRowData> items;
-  const _ForecastCard({required this.date, required this.items});
+
+  const _ForecastCard({super.key, required this.date, required this.items});
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle =
-    TextStyle(fontWeight: FontWeight.w800, color: Colors.black.withOpacity(0.85));
+    final labelStyle = TextStyle(fontWeight: FontWeight.w800, color: Colors.black.withOpacity(0.85));
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Column(
-          children: [
-            Row(
+    Widget colTexts(List<String> v) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(
+        v.length,
+            (i) => Padding(
+          padding: EdgeInsets.only(bottom: i == v.length - 1 ? 0 : 12),
+          child: Text(v[i], overflow: TextOverflow.ellipsis, softWrap: false),
+        ),
+      ),
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFD7E9FF))),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            flex: 8,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
-                  flex: 4,
-                  child: Text(date, style: labelStyle),
-                ),
-                const Expanded(flex: 11, child: SizedBox()),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ...items.map((r) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 4,
-                    child: Row(
-                      children: [
-                        _AmPmChip(text: r.amPm, isAm: r.amPm == '오전'),
-                      ],
+                SizedBox(width: 72, child: Center(child: Text(date, style: labelStyle))),
+                const SizedBox(width: 12),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List.generate(
+                    items.length,
+                        (i) => Padding(
+                      padding: EdgeInsets.only(bottom: i == items.length - 1 ? 0 : 12),
+                      child: _AmPmChip(text: items[i].amPm, isAm: items[i].amPm == '오전'),
                     ),
                   ),
-                  Expanded(flex: 4, child: Text(r.period)),
-                  Expanded(flex: 3, child: Text(r.height)),
-                  Expanded(flex: 4, child: Text(r.dir)),
-                ],
-              ),
-            )),
-          ],
-        ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(flex: 4, child: Padding(padding: const EdgeInsets.only(left: 10), child: colTexts(items.map((e) => e.period).toList()))),
+          Expanded(flex: 3, child: Padding(padding: const EdgeInsets.only(left: 14), child: colTexts(items.map((e) => e.height).toList()))),
+          Expanded(flex: 4, child: Padding(padding: const EdgeInsets.only(left: 14), child: colTexts(items.map((e) => e.dir).toList()))),
+        ],
       ),
     );
   }
@@ -447,18 +555,186 @@ class _AmPmChip extends StatelessWidget {
     final bg = isAm ? const Color(0xFFFFE6E6) : const Color(0xFFE7F0FF);
     final fg = isAm ? const Color(0xFFCC3A3A) : const Color(0xFF3056D3);
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+      child: Text(text, style: TextStyle(fontWeight: FontWeight.w700, color: fg)),
+    );
+  }
+}
+
+/* ---- 수온 표/비교용 컴포넌트 ---- */
+class _TempRow extends StatelessWidget {
+  final String date;
+  final String obs;   // 관측시간
+  final String minT;  // 현재(대신 사용)
+  final String maxT;  // 최고시간
+  final String rec;   // 최고온도
+  const _TempRow({required this.date, required this.obs, required this.minT, required this.maxT, required this.rec});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget chip(String t) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+      decoration: BoxDecoration(color: const Color(0xFFFFF0F0), borderRadius: BorderRadius.circular(10)),
+      child: Text(t, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          SizedBox(width: 86, child: Text(date, style: const TextStyle(fontWeight: FontWeight.w700))),
+          SizedBox(width: 60, child: Text(obs, textAlign: TextAlign.center)),
+          SizedBox(width: 70, child: Center(child: chip(minT))),
+          SizedBox(width: 60, child: Text(maxT, textAlign: TextAlign.center)),
+          SizedBox(width: 74, child: Center(child: chip(rec))),
+        ],
       ),
     );
   }
+}
+
+class _CompareHeader extends StatelessWidget {
+  const _CompareHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: const [
+        Expanded(flex: 5, child: Text('위치', style: TextStyle(fontWeight: FontWeight.w800))),
+        Expanded(flex: 3, child: Text('변화', textAlign: TextAlign.center)),
+        Expanded(flex: 4, child: Text('수온', textAlign: TextAlign.center)),
+        Expanded(flex: 3, child: Text('거리', textAlign: TextAlign.center)),
+        Expanded(flex: 3, child: Text('이동', textAlign: TextAlign.center)),
+      ],
+    );
+  }
+}
+
+class _CompareRow extends StatelessWidget {
+  final String place;
+  final bool trendUp;
+  final String temp;
+  final String dist;
+
+  const _CompareRow({required this.place, required this.trendUp, required this.temp, required this.dist});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE9EEF3))),
+      child: Row(
+        children: [
+          Expanded(flex: 5, child: Text(place, style: const TextStyle(fontWeight: FontWeight.w700))),
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: Icon(trendUp ? Icons.arrow_drop_up : Icons.arrow_drop_down, color: trendUp ? Colors.red : Colors.blue),
+            ),
+          ),
+          Expanded(flex: 4, child: Center(child: _tempPill(text: temp))),
+          Expanded(flex: 3, child: Center(child: Text(dist))),
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: OutlinedButton(
+                onPressed: () {},
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('이동'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _tempPill({required String text}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: const Color(0xFFFFF0F0), borderRadius: BorderRadius.circular(10)),
+      child: Text(text, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+/* ---- 아주 가벼운 더미 라인차트 (패키지 없이) ---- */
+class _MiniLineChart extends StatelessWidget {
+  final bool secondary;
+  const _MiniLineChart({this.secondary = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double w = constraints.maxWidth.isFinite ? constraints.maxWidth : 300.0;
+        final double h = constraints.maxHeight.isFinite ? constraints.maxHeight : 150.0;
+
+        return CustomPaint(
+          size: Size(w, h),
+          painter: _MiniLinePainter(secondary: secondary),
+        );
+      },
+    );
+  }
+}
+
+class _MiniLinePainter extends CustomPainter {
+  final bool secondary;
+  _MiniLinePainter({required this.secondary});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = const Color(0xFFDAE7F2)
+      ..strokeWidth = 1;
+
+    for (int i = 0; i <= 4; i++) {
+      final y = size.height * (i / 4);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+
+    final p1 = Paint()
+      ..color = const Color(0xFF5A7DFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2;
+    final path1 = Path();
+    for (int i = 0; i <= 20; i++) {
+      final wave = (i % 4 < 2 ? 1 - (i % 2) * 0.5 : 0.5);
+      final x = size.width * (i / 20);
+      final y = size.height * (0.7 - 0.2 * wave);
+      if (i == 0) {
+        path1.moveTo(x, y);
+      } else {
+        path1.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path1, p1);
+
+    if (secondary) {
+      final p2 = Paint()
+        ..color = const Color(0xFFB35DFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      final path2 = Path();
+      for (int i = 0; i <= 20; i++) {
+        final wave = (i % 4 < 2 ? 1 - (i % 2) * 0.4 : 0.4);
+        final x = size.width * (i / 20);
+        final y = size.height * (0.6 - 0.22 * wave);
+        if (i == 0) {
+          path2.moveTo(x, y);
+        } else {
+          path2.lineTo(x, y);
+        }
+      }
+      canvas.drawPath(path2, p2);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiniLinePainter oldDelegate) => oldDelegate.secondary != secondary;
 }
