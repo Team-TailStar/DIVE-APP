@@ -1,13 +1,15 @@
-// pages/fishing_point/fishing_point_detail.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'fishing_point_main.dart'; // for FishingPoint
+import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+
+import '../../models/fishing_point.dart';
 
 class FishingPointDetailPage extends StatefulWidget {
   final FishingPoint point;
-
   const FishingPointDetailPage({super.key, required this.point});
 
-  /// Helper to build from RouteSettings.arguments
   static Widget from(Object? args) {
     if (args is FishingPoint) return FishingPointDetailPage(point: args);
     return const _ArgErrorPage();
@@ -18,162 +20,164 @@ class FishingPointDetailPage extends StatefulWidget {
 }
 
 class _FishingPointDetailPageState extends State<FishingPointDetailPage> {
-  /// 0:봄, 1:여름, 2:가을, 3:겨울
-  int _seasonIndex = 0;
+  int _season = 0;
+  bool _loading = true;
+  String? _error;
 
-  late final Map<int, _SeasonInfo> _seasonData = {
-    0: const _SeasonInfo(
-      waterTemp: '수온\n표층: 16.8°C  저층: 13.9°C',
-      species: '감성돔, 참돔, 농어, 볼락',
-    ),
-    1: const _SeasonInfo(
-      waterTemp: '수온\n표층: 21.3°C  저층: 18.7°C',
-      species: '농어, 전갱이, 고등어',
-    ),
-    2: const _SeasonInfo(
-      waterTemp: '수온\n표층: 18.1°C  저층: 15.3°C',
-      species: '감성돔, 우럭, 전갱이',
-    ),
-    3: const _SeasonInfo(
-      waterTemp: '수온\n표층: 10.4°C  저층: 9.1°C',
-      species: '볼락, 우럭',
-    ),
-  };
+  late _SeasonData _spring;
+  late _SeasonData _summer;
+  late _SeasonData _fall;
+  late _SeasonData _winter;
+
+  String _notice = '';
+  String _intro = '';
+  String _forecast = '';
+  String _ebbflow = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInfo();
+  }
+
+  Future<void> _fetchInfo() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final lat = widget.point.lat ?? 35.1151;
+    final lon = widget.point.lng ?? 129.0415;
+    final url =
+        'https://www.badatime.com/DIVE/point?lat=$lat&lon=$lon&key=X2KN516OA5RAUL3GPCEFARGKHHKJQN';
+
+    try {
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode != 200) {
+        throw Exception('HTTP ${res.statusCode}');
+      }
+
+      final j = jsonDecode(res.body) as Map<String, dynamic>;
+      final info = (j['info'] as Map).cast<String, dynamic>();
+
+      T? pick<T>(Map<String, dynamic> j, List<String> cands) {
+        String norm(String s) =>
+            s.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '').toLowerCase();
+        final nk = {for (final k in j.keys) norm(k): k};
+        for (final c in cands) {
+          final hit = nk[norm(c)];
+          if (hit != null) return j[hit] as T?;
+        }
+        return null;
+      }
+
+      List<String> parseFish(String? raw) => (raw ?? '')
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(growable: false);
+
+      _SeasonData parseTemp(String? raw, List<String> fishes) {
+        final text = (raw ?? '').replaceAll(' ', '');
+        final match =
+        RegExp(r'표층:?([0-9.]+)℃.*?저층:?([0-9.]+)℃').firstMatch(text);
+        final surface = match != null ? double.parse(match.group(1)!) : 0.0;
+        final bottom = match != null ? double.parse(match.group(2)!) : 0.0;
+        return _SeasonData(surface: surface, bottom: bottom, fishes: fishes);
+      }
+
+      _spring = parseTemp(
+        pick<String>(info, ['wtemp_sp', 'wtempSpring', 'wtempsp']),
+        parseFish(pick<String>(info, ['fish_sp', 'fishSpring', 'fishsp'])),
+      );
+      _summer = parseTemp(
+        pick<String>(info, ['wtemp_su', 'wtempSummer', 'wtempsu']),
+        parseFish(pick<String>(info, ['fish_su', 'fishSummer', 'fishsu'])),
+      );
+      _fall = parseTemp(
+        pick<String>(info, ['wtemp_fa', 'wtempFall', 'wtempfa']),
+        parseFish(pick<String>(info, ['fish_fa', 'fishFall', 'fishfa'])),
+      );
+      _winter = parseTemp(
+        pick<String>(info, ['wtemp_wi', 'wtempWinter', 'wtempwi']),
+        parseFish(pick<String>(info, ['fish_wi', 'fishWinter', 'fishwi'])),
+      );
+
+      _notice = pick<String>(info, ['notice', '주의', '알림']) ?? '';
+      _intro = pick<String>(info, ['intro', '소개']) ?? '';
+      _forecast = pick<String>(info, ['forecast', '기상']) ?? '';
+      _ebbflow = pick<String>(info, ['ebbf', '조류', 'ebbFlow']) ?? '';
+
+      setState(() {
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = '상세 데이터를 불러오지 못했어요. ${e.toString()}';
+        _loading = false;
+      });
+    }
+  }
+
+  _SeasonData get _currentSeasonData =>
+      [_spring, _summer, _fall, _winter][_season];
 
   @override
   Widget build(BuildContext context) {
     final p = widget.point;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F9),
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        elevation: 0,
+        title: const Text('낚시포인트 상세페이지'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchInfo,
+            tooltip: '새로고침',
+          )
+        ],
+      ),
       body: SafeArea(
-        bottom: false,
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _MapHeader(onBack: () => Navigator.pop(context))),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate.fixed([
-                  // 기본 정보 카드
-                  _SectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          p.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _MiniBadge(icon: Icons.label_rounded, label: '영종도·용유도'),
-                            _MiniBadge(icon: Icons.water_drop_outlined, label: '수심'),
-                            _MiniBadge(icon: Icons.terrain_rounded, label: '바닥지형 펄'),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        _InfoRow(
-                          icon: Icons.waves_outlined,
-                          iconColor: const Color(0xFF2A79FF),
-                          text: p.depthRange,
-                        ),
-                        const SizedBox(height: 4),
-                        _InfoRow(
-                          icon: Icons.location_on_outlined,
-                          iconColor: Colors.redAccent,
-                          text: p.location,
-                        ),
-                        const SizedBox(height: 4),
-                        _InfoRow(
-                          icon: Icons.arrow_right_alt_rounded,
-                          iconColor: Colors.black54,
-                          text: p.species.join(', '),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // 계절별 어종 정보
-                  _SectionCard(
-                    title: '계절별 어종 정보',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SeasonChips(
-                          index: _seasonIndex,
-                          onChanged: (i) => setState(() => _seasonIndex = i),
-                        ),
-                        const SizedBox(height: 10),
-                        _InfoRow(
-                          icon: Icons.thermostat,
-                          iconColor: Colors.orange.shade700,
-                          text: _seasonData[_seasonIndex]!.waterTemp,
-                        ),
-                        const SizedBox(height: 4),
-                        _InfoRow(
-                          icon: Icons.sailing_outlined,
-                          iconColor: Colors.blueGrey,
-                          text: _seasonData[_seasonIndex]!.species,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // 주의사항
-                  _SectionCard(
-                    title: '주의사항',
-                    child: _WarningBlock(
-                      text:
-                      '영종도 남쪽에 간출암이 존재하고, 연화도와 우도를 연결하는 전차선(해상 케이블)이 있다. 또한 북쪽 해상에 양식장이 있으므로 운항하는 선박은 주의해야 한다.',
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // 상세 정보
-                  _SectionCard(
-                    title: '상세 정보',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        _BulletBlock(
-                          icon: Icons.waves,
-                          title: '조류 정보',
-                          body:
-                          '백암도 남서쪽에서의 정조류는 외화도부터 북동방향으로 2.3kn로 흐르고, 낙조류는 남서방향으로 2.5kn로 흐른다. 외화도의 동쪽 사이 및 북서에 소류대가 형성되어 따라가며 낚시가 잘 되는 포인트가 있다.',
-                        ),
-                        SizedBox(height: 10),
-                        _BulletBlock(
-                          icon: Icons.cloud_outlined,
-                          title: '기상 정보',
-                          body:
-                          '기온의 연교차가 비교적 큰 대륙성기후의 특징이 나타난다. 봄, 가을철에는 북서풍이 불며 강풍이 잦고 한여름에는 약한 남서풍, 겨울 후반에는 동해안에서의 영향으로 2~3°C 정도 낮은 편이다.',
-                        ),
-                        SizedBox(height: 10),
-                        _BulletBlock(
-                          icon: Icons.place_outlined,
-                          title: '포인트 소개',
-                          body:
-                          '이 부근의 주요 어종은 넙치, 노래미, 농어, 참돔, 우럭 등이다. 루어낚시는 썰물 초반과 끝물, 지그헤드 훅 또는 메탈지그가 효과적이다. 인조방파제, 해변부는 조경이 고정적이며, 잠재적인 조류의 변화에 따라 포인트가 형성된다. 주차 및 간단한 준비가 용이한 초보자 친화형 포인트로, 초여름부터 낚시활동이 편리하다.',
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-                ]),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _fetchInfo,
+                child: const Text('다시 시도'),
               ),
+            ],
+          ),
+        )
+            : ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _PointMap(point: p),
+            const SizedBox(height: 12),
+            _SummaryCard(point: p),
+            const SizedBox(height: 12),
+            _SeasonCard(
+              season: _season,
+              onChanged: (v) => setState(() => _season = v),
+              data: _currentSeasonData,
             ),
+            const SizedBox(height: 12),
+            if (_notice.isNotEmpty) _WarningCard(text: _notice),
+            if (_notice.isNotEmpty) const SizedBox(height: 12),
+            _DetailCard(
+              intro: _intro,
+              forecast: _forecast,
+              ebbflow: _ebbflow,
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -181,86 +185,123 @@ class _FishingPointDetailPageState extends State<FishingPointDetailPage> {
   }
 }
 
-/// ---------- small widgets ----------
-
-class _MapHeader extends StatelessWidget {
-  const _MapHeader({required this.onBack});
-  final VoidCallback onBack;
+class _PointMap extends StatefulWidget {
+  const _PointMap({required this.point});
+  final FishingPoint point;
 
   @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Map placeholder (replace with Kakao/Naver/Google Map if you have one)
-        Container(
-          height: 220,
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE5F1FF),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF8DBDFF), width: 2),
-            image: const DecorationImage(
-              image: AssetImage('assets/map_placeholder.png'), // optional
-              fit: BoxFit.cover,
-              onError: null,
-            ),
-          ),
-          child: const Center(
-            child: Icon(Icons.location_pin, size: 36, color: Colors.blueAccent),
-          ),
-        ),
-        Positioned(
-          top: 20,
-          left: 24,
-          child: Material(
-            color: Colors.white,
-            shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            child: InkWell(
-              onTap: onBack,
-              borderRadius: BorderRadius.circular(24),
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Icon(Icons.arrow_back_ios_new, size: 20),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  State<_PointMap> createState() => _PointMapState();
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({this.title, required this.child});
-  final String? title;
-  final Widget child;
+class _PointMapState extends State<_PointMap> {
+  NaverMapController? _controller;
+
+  NLatLng get _target => NLatLng(
+    widget.point.lat ?? 35.2313,
+    widget.point.lng ?? 129.0825,
+  );
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE6E9EF)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        height: 220,
+        child: Stack(
           children: [
-            if (title != null) ...[
-              Text(
-                title!,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
+            NaverMap(
+              options: NaverMapViewOptions(
+                initialCameraPosition:
+                NCameraPosition(target: _target, zoom: 14),
+                mapType: NMapType.basic,
+                locationButtonEnable: false,
+                scrollGesturesEnable: true,
+                zoomGesturesEnable: true,
+                scaleBarEnable: true,
+              ),
+              onMapReady: (controller) async {
+                _controller = controller;
+                final marker = NMarker(
+                  id: 'point_${_target.latitude}_${_target.longitude}',
+                  position: _target,
+                  caption: NOverlayCaption(text: widget.point.name),
+                );
+                await _controller!.addOverlay(marker);
+              },
+            ),
+
+            Positioned(
+              right: 10,
+              bottom: 10,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 6)
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.add, color: Colors.black),
+                      onPressed: () async {
+                        if (_controller == null) return;
+                        final pos = await _controller!.getCameraPosition();
+                        await _controller!.updateCamera(
+                          NCameraUpdate.fromCameraPosition(
+                            NCameraPosition(
+                                target: pos.target, zoom: pos.zoom + 1),
+                          ),
+                        );
+                      },
+                    ),
+                    Container(width: 36, height: 1, color: Colors.grey[300]),
+                    IconButton(
+                      icon: const Icon(Icons.remove, color: Colors.black),
+                      onPressed: () async {
+                        if (_controller == null) return;
+                        final pos = await _controller!.getCameraPosition();
+                        await _controller!.updateCamera(
+                          NCameraUpdate.fromCameraPosition(
+                            NCameraPosition(
+                                target: pos.target, zoom: pos.zoom - 1),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-            ],
-            child,
+            ),
+
+            Positioned(
+              left: 10,
+              bottom: 10,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final lat = widget.point.lat, lng = widget.point.lng;
+                  if (lat == null || lng == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('좌표가 없어 길찾기를 열 수 없어요.')),
+                    );
+                    return;
+                  }
+                  await _openNaverDirections(lat, lng, name: widget.point.name);
+                },
+                icon: const Icon(Icons.directions),
+                label: const Text('길찾기'),
+                style: ElevatedButton.styleFrom(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -268,16 +309,90 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.iconColor,
-    required this.text,
-  });
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({required this.point});
+  final FishingPoint point;
 
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(point.name,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(point.location.isEmpty ? '-' : point.location,
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade700)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.landscape_rounded,
+                  size: 20, color: Colors.brown),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _InfoLine(
+              icon: Icons.water_drop,
+              iconColor: const Color(0xFF3B82F6),
+              label: '수심',
+              value: point.depthRange.isEmpty ? '-' : point.depthRange),
+          const SizedBox(height: 6),
+          _InfoLine(
+              icon: Icons.place_rounded,
+              iconColor: Colors.redAccent,
+              label: '주소',
+              value: point.location.isEmpty ? '-' : point.location),
+          const SizedBox(height: 6),
+          _InfoLine(
+              icon: Icons.layers_rounded,
+              iconColor: Colors.orange,
+              label: '바닥지질',
+              value: '정보 없음'),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(Icons.campaign,
+                    size: 18, color: Color(0xFF3B82F6)),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                    point.species.isEmpty
+                        ? '어종 정보 없음'
+                        : point.species.join(', '),
+                    style: const TextStyle(fontSize: 13.5, color: Colors.black87)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoLine extends StatelessWidget {
+  const _InfoLine(
+      {required this.icon,
+        required this.iconColor,
+        required this.label,
+        required this.value});
   final IconData icon;
   final Color iconColor;
-  final String text;
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
@@ -285,44 +400,58 @@ class _InfoRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 18, color: iconColor),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
+        Text('$label  ', style: const TextStyle(fontWeight: FontWeight.w700)),
         Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 13.5, color: Colors.black87),
-          ),
-        ),
+            child: Text(value, style: const TextStyle(color: Colors.black87))),
       ],
     );
   }
 }
 
-class _MiniBadge extends StatelessWidget {
-  const _MiniBadge({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
+class _SeasonCard extends StatelessWidget {
+  const _SeasonCard(
+      {required this.season, required this.onChanged, required this.data});
+  final int season;
+  final ValueChanged<int> onChanged;
+  final _SeasonData data;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F6FF),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE0E7FF)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF4067E6)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF4067E6),
-            ),
+          const _BlockTitle('계절별 어종 정보'),
+          const SizedBox(height: 8),
+          _SeasonChips(value: season, onChanged: onChanged),
+          const SizedBox(height: 10),
+          const Divider(height: 20),
+          _InfoLine(
+            icon: Icons.thermostat,
+            iconColor: Colors.orange,
+            label: '수온',
+            value:
+            '표층 : ${data.surface.toStringAsFixed(1)}°C   저층 : ${data.bottom.toStringAsFixed(1)}°C',
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(Icons.campaign,
+                    size: 18, color: Color(0xFF3B82F6)),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  data.fishes.isEmpty ? '어종 정보 없음' : data.fishes.join(', '),
+                  style:
+                  const TextStyle(fontSize: 13.5, color: Colors.black87),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -331,65 +460,68 @@ class _MiniBadge extends StatelessWidget {
 }
 
 class _SeasonChips extends StatelessWidget {
-  const _SeasonChips({required this.index, required this.onChanged});
-  final int index;
+  const _SeasonChips({required this.value, required this.onChanged});
+  final int value;
   final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['봄', '여름', '가을', '겨울'];
+    final items = const ['봄', '여름', '가을', '겨울'];
     return Wrap(
       spacing: 8,
-      children: List.generate(labels.length, (i) {
-        final selected = index == i;
+      children: List<Widget>.generate(items.length, (i) {
+        final selected = value == i;
         return ChoiceChip(
-          label: Text(labels[i]),
+          label: Text(items[i]),
           selected: selected,
           onSelected: (_) => onChanged(i),
           labelStyle: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: selected ? const Color(0xFF0B6AAE) : Colors.black87,
+            fontWeight: FontWeight.w700,
+            color: selected ? const Color(0xFF1664D9) : Colors.black87,
           ),
-          backgroundColor: Colors.white,
           selectedColor: const Color(0xFFEAF4FF),
-          shape: StadiumBorder(
-            side: BorderSide(
-              color: selected ? const Color(0xFFB6DAFF) : const Color(0xFFE4E6EB),
-            ),
-          ),
+          backgroundColor: Colors.white,
+          side: BorderSide(
+              color: selected
+                  ? const Color(0xFFB6DAFF)
+                  : const Color(0xFFE4E6EB)),
+          shape: const StadiumBorder(),
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
         );
       }),
     );
   }
 }
 
-class _WarningBlock extends StatelessWidget {
-  const _WarningBlock({required this.text});
+class _SeasonData {
+  final double surface;
+  final double bottom;
+  final List<String> fishes;
+  const _SeasonData(
+      {required this.surface, required this.bottom, required this.fishes});
+}
+
+class _WarningCard extends StatelessWidget {
+  const _WarningCard({required this.text});
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF7E6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFE1A6)),
-      ),
+    return _Card(
+      color: const Color(0xFFFFF7E6),
+      borderColor: const Color(0xFFFFE0A1),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF8B00)),
-          const SizedBox(width: 10),
+          const Padding(
+            padding: EdgeInsets.only(right: 10, top: 2),
+            child:
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309)),
+          ),
           Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 13.5,
-                height: 1.4,
-                color: Color(0xFF6A4A00),
-              ),
-            ),
+            child: Text(text.isEmpty ? '주의 정보 없음' : text,
+                style: const TextStyle(height: 1.45)),
           ),
         ],
       ),
@@ -397,52 +529,127 @@ class _WarningBlock extends StatelessWidget {
   }
 }
 
-class _BulletBlock extends StatelessWidget {
-  const _BulletBlock({required this.icon, required this.title, required this.body});
+class _DetailCard extends StatelessWidget {
+  const _DetailCard(
+      {required this.intro, required this.forecast, required this.ebbflow});
+  final String intro;
+  final String forecast;
+  final String ebbflow;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _BlockTitle('상세 정보'),
+          const SizedBox(height: 12),
+          const _SubTitle(
+              icon: Icons.waves,
+              color: Color(0xFF3B82F6),
+              title: '물·조류 정보'),
+          const SizedBox(height: 6),
+          Text(
+            ebbflow.isEmpty ? '조류 정보 없음' : ebbflow,
+            style: const TextStyle(height: 1.6),
+          ),
+          const SizedBox(height: 14),
+          const _SubTitle(
+              icon: Icons.dry,
+              color: Color(0xFFFB923C),
+              title: '기상 정보'),
+          const SizedBox(height: 6),
+          Text(
+            forecast.isEmpty ? '기상 정보 없음' : forecast,
+            style: const TextStyle(height: 1.6),
+          ),
+          const SizedBox(height: 14),
+          const _SubTitle(
+              icon: Icons.pin_drop_rounded,
+              color: Color(0xFF10B981),
+              title: '포인트 소개'),
+          const SizedBox(height: 6),
+          Text(
+            intro.isEmpty ? '소개 정보 없음' : intro,
+            style: const TextStyle(height: 1.6),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubTitle extends StatelessWidget {
+  const _SubTitle(
+      {required this.icon, required this.title, required this.color});
   final IconData icon;
   final String title;
-  final String body;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.blueGrey),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 13.5)),
-              const SizedBox(height: 4),
-              Text(
-                body,
-                style: const TextStyle(fontSize: 13.5, height: 1.5),
-              ),
-            ],
-          ),
-        ),
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 6),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
       ],
     );
   }
 }
 
-class _SeasonInfo {
-  final String waterTemp;
-  final String species;
-  const _SeasonInfo({required this.waterTemp, required this.species});
+class _Card extends StatelessWidget {
+  const _Card({required this.child, this.color, this.borderColor});
+  final Widget child;
+  final Color? color;
+  final Color? borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color ?? Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor ?? const Color(0xFFE5E7EB)),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _BlockTitle extends StatelessWidget {
+  const _BlockTitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900));
+  }
 }
 
 class _ArgErrorPage extends StatelessWidget {
   const _ArgErrorPage();
-
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(child: Text('No FishingPoint passed to detail page.')),
-    );
+        body: Center(child: Text('잘못된 인자입니다. FishingPoint를 넘겨주세요.')));
+  }
+}
+
+Future<void> _openNaverDirections(double lat, double lng,
+    {String name = '목적지'}) async {
+  final appUrl =
+      'nmap://route/public?dlat=$lat&dlng=$lng&dname=${Uri.encodeComponent(name)}&appname=com.pan.resq';
+  final webUrl = 'https://map.naver.com/v5/?c=$lng,$lat,17,0,0,0,dh';
+
+  final appUri = Uri.parse(appUrl);
+  final webUri = Uri.parse(webUrl);
+
+  if (await canLaunchUrl(appUri)) {
+    await launchUrl(appUri);
+  } else {
+    await launchUrl(webUri, mode: LaunchMode.externalApplication);
   }
 }
