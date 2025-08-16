@@ -116,7 +116,6 @@ class _WeatherPageState extends State<WeatherPage> {
           ),
         ),
       ),
-      bottomNavigationBar: _bottomBar(),
     );
   }
 
@@ -159,21 +158,6 @@ class _WeatherPageState extends State<WeatherPage> {
     );
   }
 
-  Widget _bottomBar() {
-    return Container(
-      height: 60,
-      decoration: const BoxDecoration(color: Colors.white),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: const [
-          Icon(Icons.home_outlined),
-          Icon(Icons.ac_unit_outlined),
-          Icon(Icons.insert_chart_outlined_rounded),
-          Icon(Icons.home_filled),
-        ],
-      ),
-    );
-  }
 
   Widget _emptyState(String msg) => Expanded(child: Center(child: Text(msg, style: const TextStyle(color: Colors.white, fontSize: 16))));
   Widget _emptyBox(String msg) => Container(
