@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum WeatherTab { today, tomorrow, week }
+enum WeatherTab { today, week  }
 
 class WeatherTabs extends StatelessWidget {
   final WeatherTab current;
@@ -36,7 +36,6 @@ class WeatherTabs extends StatelessWidget {
     return Row(
       children: [
         chip('오늘', WeatherTab.today),
-        chip('내일', WeatherTab.tomorrow),
         chip('이번 주', WeatherTab.week),
       ],
     );

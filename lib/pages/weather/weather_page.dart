@@ -9,6 +9,7 @@ import 'weather_models.dart';
 import 'air_quality_card.dart';
 import 'air_quality_service.dart';
 import 'sky_icon_mapper.dart';
+import 'weather_weekly_list.dart';
 
 class WeatherPage extends StatefulWidget {
   final double lat;
@@ -71,8 +72,35 @@ class _WeatherPageState extends State<WeatherPage> {
                             _bigTemp(current.tempC, current.sky, current.skyCode),
                             const SizedBox(height: 12),
                             WeatherMetricsCard(current: current),
+                            if (_tab == WeatherTab.today) ...[
+                              const SizedBox(height: 14),
+                              FutureBuilder<AirQualitySummary>(
+                                future: AirQualityService.fetchSummary(city: now.city),
+                                builder: (context, aq) {
+                                  if (aq.connectionState != ConnectionState.done) {
+                                    return Container(
+                                      height: 160,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.28),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(color: Colors.white),
+                                      ),
+                                    );
+                                  }
+                                  if (!aq.hasData) return const SizedBox.shrink();
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 14),
+                                    child: AirQualityCard(data: aq.data!),
+                                  );
+                                },
+                              ),
+                            ],
+
                             const SizedBox(height: 14),
 
+                            // 예보(오늘=시간대 리스트 / 이번 주=주간 리스트+대기질 배지)
                             FutureBuilder<List<Day7Item>>(
                               future: _day7F,
                               builder: (context, ds) {
@@ -82,30 +110,31 @@ class _WeatherPageState extends State<WeatherPage> {
                                 if (ds.hasError || ds.data == null || ds.data!.isEmpty) {
                                   return _emptyBox('예보 정보가 없습니다.');
                                 }
-                                return WeatherHourlyList(all: ds.data!, tab: _tab);
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            FutureBuilder<AirQualitySummary>(
-                              future: AirQualityService.fetchSummary(city: now.city),
-                              builder: (context, snap) {
-                                if (snap.connectionState != ConnectionState.done) {
-                                  return Container(
-                                    height: 160,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.28),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: const Center(child: CircularProgressIndicator(color: Colors.white)),
-                                  );
+                                final list = ds.data!;
+
+                                if (_tab == WeatherTab.today) {
+                                  return WeatherHourlyList(all: list, tab: _tab);
                                 }
-                                if (!snap.hasData) return const SizedBox.shrink();
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 14),
-                                  child: AirQualityCard(data: snap.data!),
+
+                                final nowDt = DateTime.now();
+                                final today0 = DateTime(nowDt.year, nowDt.month, nowDt.day);
+                                final rangeStart = today0.subtract(const Duration(days: 3));
+
+                                return FutureBuilder<AirQualitySummary>(
+                                  future: AirQualityService.fetchSummary(city: now.city),
+                                  builder: (context, aq) {
+                                    return WeatherWeeklyList(
+                                      all: list,
+                                      air: aq.data,
+                                      title: 'This Week',
+                                      startDate: rangeStart,
+                                      highlightDate: today0,
+                                    );
+                                  },
                                 );
                               },
                             ),
+
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -118,7 +147,7 @@ class _WeatherPageState extends State<WeatherPage> {
           ),
         ),
       ),
-        bottomNavigationBar: const AppBottomNav(currentIndex: 0)
+      bottomNavigationBar: const AppBottomNav(currentIndex: 0),
     );
   }
 
