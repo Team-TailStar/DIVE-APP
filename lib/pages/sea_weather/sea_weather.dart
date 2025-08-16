@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../routes.dart';
-<<<<<<< HEAD
-=======
 import '../tide/tide_page.dart';
->>>>>>> origin/develop
+
+
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -116,6 +115,7 @@ class _WaveSection extends StatelessWidget {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         ),
         const SizedBox(height: 16),
+
 
         // 상단 3개 카드
         Container(
