@@ -1,20 +1,7 @@
+// lib/pages/weather/weather_page.dart
 import 'package:flutter/material.dart';
-import 'weather_models.dart';
-import 'weather_api.dart';
-import 'weather_tabs.dart';
-import 'weather_metrics_card.dart';
-import 'weather_hourly_list.dart';
-import 'sky_icon_mapper.dart';
-import 'air_quality_service.dart';
-import 'air_quality_card.dart';
-class WeatherPage extends StatefulWidget {
-  final double lat;
-  final double lon;
-  const WeatherPage({super.key, required this.lat, required this.lon});
 
-  @override
-  State<WeatherPage> createState() => _WeatherPageState();
-}
+import '../app_bottom_nav.dart';
 
 class _WeatherPageState extends State<WeatherPage> {
   late Future<NowResponse> _nowF;
