@@ -39,8 +39,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # === 지도/위치/딥링크 ===
-  flutter_naver_map: ^1.4.1+1  # 네이버맵 플러그인
-  geolocator: ^11.0.0         # 현재 위치/권한
+  flutter_naver_map: ^1.4.1+1  # 네이버맵 플러그인    # 현재 위치/권한
   url_launcher: ^6.3.0        # nmap:// 딥링크
 
 dev_dependencies:
