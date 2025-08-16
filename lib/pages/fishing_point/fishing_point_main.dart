@@ -1,6 +1,7 @@
 // lib/pages/fishing_point/fishing_point_main.dart
 import 'package:flutter/material.dart';
 import '../../routes.dart';
+import '../../models/fishing_point.dart';
 
 class FishingPointMainPage extends StatefulWidget {
   const FishingPointMainPage({super.key});
@@ -10,7 +11,9 @@ class FishingPointMainPage extends StatefulWidget {
 }
 
 class _FishingPointMainPageState extends State<FishingPointMainPage> {
-  // --- mock data (replace with your API/DB) ---
+  static const _img =
+      'https://images.unsplash.com/photo-1508182311256-e3f6b475a2e4?auto=format&fit=crop&w=1080&q=80';
+
   final List<FishingPoint> _points = [
     FishingPoint(
       id: '1',
@@ -19,38 +22,38 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       distanceKm: 11.7,
       depthRange: '2.4~2.9m',
       species: ['넙치', '노래미', '붕장어', '우럭'],
-      imageUrl:
-      'https://images.unsplash.com/photo-1508182311256-e3f6b475a2e4?q=80&w=1080&auto=format&fit=crop',
+      imageUrl: _img,
+      lat: 37.449, lng: 126.597,
     ),
     FishingPoint(
       id: '2',
-      name: '삼목수문',
+      name: '삼목수문 A구역',
       location: '인천광역시 옹진군',
-      distanceKm: 11.7,
-      depthRange: '2.4~2.9m',
-      species: ['넙치', '노래미', '붕장어', '우럭'],
-      imageUrl:
-      'https://images.unsplash.com/photo-1508672019048-805c876b67e2?q=80&w=1080&auto=format&fit=crop',
+      distanceKm: 12.3,
+      depthRange: '2.0~2.6m',
+      species: ['감성돔', '우럭', '볼락'],
+      imageUrl: _img,
+      lat: 37.451, lng: 126.599,
     ),
     FishingPoint(
       id: '3',
-      name: '삼목수문',
+      name: '삼목수문 B구역',
       location: '인천광역시 옹진군',
-      distanceKm: 11.7,
-      depthRange: '2.4~2.9m',
-      species: ['넙치', '노래미', '붕장어', '우럭'],
-      imageUrl:
-      'https://images.unsplash.com/photo-1464126072230-91cabc968266?q=80&w=1080&auto=format&fit=crop',
+      distanceKm: 10.8,
+      depthRange: '2.8~3.3m',
+      species: ['광어', '농어'],
+      imageUrl: _img,
+      lat: 37.447, lng: 126.595,
     ),
     FishingPoint(
       id: '4',
-      name: '삼목수문',
+      name: '삼목수문 C구역',
       location: '인천광역시 옹진군',
-      distanceKm: 11.7,
-      depthRange: '2.4~2.9m',
-      species: ['넙치', '노래미', '붕장어', '우럭'],
-      imageUrl:
-      'https://images.unsplash.com/photo-1473093226795-af9932fe5856?q=80&w=1080&auto=format&fit=crop',
+      distanceKm: 9.6,
+      depthRange: '2.2~2.7m',
+      species: ['넙치', '우럭'],
+      imageUrl: _img,
+      lat: 37.446, lng: 126.593,
     ),
   ];
 
@@ -58,23 +61,21 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
   @override
   Widget build(BuildContext context) {
-    final count = _points.length;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F9),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle:
-        const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.black),
+        titleTextStyle: const TextStyle(
+            fontSize: 22, fontWeight: FontWeight.w800, color: Colors.black),
         title: const Text('낚시포인트'),
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SafeArea(
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          itemCount: _points.length + 2, // 2 = 필터 영역 + "총 n개" 텍스트
+          itemCount: _points.length + 2, // 2 = 필터 영역 + 섹션 타이틀
           separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             if (index == 0) {
@@ -99,8 +100,8 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
               onTapDetail: () {
                 Navigator.pushNamed(
                   context,
-                  Routes.fishingPointDetail, // ✅ 라우트 상수 사용
-                  arguments: item,
+                  Routes.fishingPointDetail,
+                  arguments: item, // ➜ 상세에서 FishingPoint 받음
                 );
               },
             );
@@ -111,7 +112,6 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   }
 }
 
-// ====== Widgets ======
 
 class _FilterRow extends StatelessWidget {
   const _FilterRow({required this.incheonSelected, required this.onTap});
@@ -127,7 +127,6 @@ class _FilterRow extends StatelessWidget {
         children: [
           _ChipButton(label: '인천', selected: incheonSelected, onTap: onTap),
           const SizedBox(width: 8),
-          // TODO: 다른 지역 칩 추가 가능 (예: 경기, 서울 등)
         ],
       ),
     );
@@ -146,7 +145,7 @@ class _ChipButton extends StatelessWidget {
     final border = selected ? const Color(0xFFB6DAFF) : const Color(0xFFE4E6EB);
     final text = selected ? const Color(0xFF2A79FF) : Colors.black87;
 
-    return Material( // ✅ InkWell 스플래시를 위해 Material 제공
+    return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -244,7 +243,7 @@ class _FishingPointCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                         shape: const StadiumBorder(),
                       ),
-                      onPressed: onTapDetail, // ✅ 콜백 사용
+                      onPressed: onTapDetail,
                       icon: const Icon(Icons.chevron_right),
                       label: const Text('상세보기'),
                     ),
@@ -270,7 +269,6 @@ class _Thumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Row 안에서 안전하게 동작하도록 고정 크기 제약
     return SizedBox(
       width: 92,
       height: 92,
@@ -318,26 +316,4 @@ class _InfoRow extends StatelessWidget {
       ],
     );
   }
-}
-
-// ====== Model ======
-
-class FishingPoint {
-  final String id;
-  final String name;
-  final String location;
-  final double distanceKm;
-  final String depthRange;
-  final List<String> species;
-  final String imageUrl;
-
-  const FishingPoint({
-    required this.id,
-    required this.name,
-    required this.location,
-    required this.distanceKm,
-    required this.depthRange,
-    required this.species,
-    required this.imageUrl,
-  });
 }

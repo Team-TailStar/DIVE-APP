@@ -1,7 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'routes.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // runApp 실행 이전이면 필요
+
+  await FlutterNaverMap().init(
+      clientId: 'vwykpurwuk',
+      onAuthFailed: (ex) {
+        switch (ex) {
+          case NQuotaExceededException(:final message):
+            print("사용량 초과 (message: $message)");
+            break;
+          case NUnauthorizedClientException() ||
+          NClientUnspecifiedException() ||
+          NAnotherAuthFailedException():
+            print("인증 실패: $ex");
+            break;
+        }
+      });
+
   runApp(const SeaWeatherApp());
 }
 
@@ -17,7 +35,7 @@ class SeaWeatherApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: const Color(0xFF6EC5FF),
         scaffoldBackgroundColor: const Color(0xFFEFF8FD),
-        fontFamily: 'Pretendard', // (optional) remove if not added
+        fontFamily: 'Pretendard',
         chipTheme: ChipThemeData(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
