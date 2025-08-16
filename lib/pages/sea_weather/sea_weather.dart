@@ -3,6 +3,7 @@ import '../../routes.dart';
 import '../tide/tide_page.dart';
 
 
+
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
 
@@ -69,10 +70,17 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         ),
       ),
 
-      // 하단 탭
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: bottomIndex,
-        onTap: (i) => setState(() => bottomIndex = i),
+        onTap: (i) {
+          setState(() => bottomIndex = i);
+          if (i == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TidePage()), // tide_page.dart의 TidePage
+            );
+          }
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: ''),
           BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: ''),
@@ -84,6 +92,7 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         backgroundColor: Colors.white,
         elevation: 8,
       ),
+
     );
   }
 }
@@ -106,6 +115,7 @@ class _WaveSection extends StatelessWidget {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         ),
         const SizedBox(height: 16),
+
 
         // 상단 3개 카드
         Container(
@@ -428,7 +438,6 @@ class TempComparePage extends StatelessWidget {
         ],
         type: BottomNavigationBarType.fixed,
       ),
-
     );
   }
 }
