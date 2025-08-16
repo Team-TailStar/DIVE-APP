@@ -90,10 +90,6 @@ class WeatherHourlyList extends StatelessWidget {
         start = DateTime(now.year, now.month, now.day);
         end = start.add(const Duration(days: 1));
         break;
-      case WeatherTab.tomorrow:
-        start = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
-        end = start.add(const Duration(days: 1));
-        break;
       case WeatherTab.week:
         start = DateTime(now.year, now.month, now.day);
         end = start.add(const Duration(days: 7));

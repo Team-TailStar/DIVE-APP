@@ -65,126 +65,39 @@ class WeatherApi {
 
   static Future<List<Day7Item>> fetchDay7(double lat, double lon) async {
     if (_useMock) {
-      final start = DateTime.now();
-      // 3시간 간격으로 샘플 몇 개
-      final List<Day7Item> items = [
-        Day7Item(
-          time: DateTime(start.year, start.month, start.day, 0),
-          sky: '맑음',
-          skyCode: '1',
-          rainProb: 0,
-          rainAmtMm: 0.0,
-          tempC: 27,
-          humidity: 91,
-          windDir: 'NE',
-          windSpd: 1.0,
-          wavePrd: 7.2,
-          waveHt: 0.20,
-          waveDir: 'SSW',
-        ),
-        Day7Item(
-          time: DateTime(start.year, start.month, start.day, 3),
-          sky: '맑음',
-          skyCode: '1',
-          rainProb: 0,
-          rainAmtMm: 0.0,
-          tempC: 26,
-          humidity: 85,
-          windDir: 'N',
-          windSpd: 1.8,
-          wavePrd: 7.1,
-          waveHt: 0.18,
-          waveDir: 'SSW',
-        ),
-        Day7Item(
-          time: DateTime(start.year, start.month, start.day, 6),
-          sky: '구름조금',
-          skyCode: '2',
-          rainProb: 10,
-          rainAmtMm: 0.0,
-          tempC: 28,
-          humidity: 74,
-          windDir: 'E',
-          windSpd: 0.6,
-          wavePrd: 8.0,
-          waveHt: 0.94,
-          waveDir: 'ENE',
-        ),
-        Day7Item(
-          time: DateTime(start.year, start.month, start.day, 9),
-          sky: '맑음',
-          skyCode: '1',
-          rainProb: 0,
-          rainAmtMm: 0.0,
-          tempC: 30,
-          humidity: 57,
-          windDir: 'SE',
-          windSpd: 2.2,
-          wavePrd: 5.5,
-          waveHt: 1.2,
-          waveDir: 'ENE',
-        ),
-        Day7Item(
-          time: DateTime(start.year, start.month, start.day, 12),
-          sky: '맑음',
-          skyCode: '1',
-          rainProb: 0,
-          rainAmtMm: 0.0,
-          tempC: 31,
-          humidity: 55,
-          windDir: 'S',
-          windSpd: 2.0,
-          wavePrd: 6.3,
-          waveHt: 0.6,
-          waveDir: 'ESE',
-        ),
-        Day7Item(
-          time: DateTime(start.year, start.month, start.day, 15),
-          sky: '구름조금',
-          skyCode: '2',
-          rainProb: 10,
-          rainAmtMm: 0.0,
-          tempC: 30,
-          humidity: 60,
-          windDir: 'SSW',
-          windSpd: 1.6,
-          wavePrd: 6.8,
-          waveHt: 0.5,
-          waveDir: 'SE',
-        ),
-        Day7Item(
-          time: DateTime(start.year, start.month, start.day, 18),
-          sky: '맑음',
-          skyCode: '1',
-          rainProb: 0,
-          rainAmtMm: 0.0,
-          tempC: 28,
-          humidity: 68,
-          windDir: 'S',
-          windSpd: 1.2,
-          wavePrd: 7.5,
-          waveHt: 0.4,
-          waveDir: 'SSE',
-        ),
-        Day7Item(
-          time: DateTime(start.year, start.month, start.day, 21),
-          sky: '맑음',
-          skyCode: '1',
-          rainProb: 0,
-          rainAmtMm: 0.0,
-          tempC: 27,
-          humidity: 72,
-          windDir: 'SSW',
-          windSpd: 0.8,
-          wavePrd: 8.2,
-          waveHt: 0.35,
-          waveDir: 'SSW',
-        ),
-      ];
+      final now = DateTime.now();
+      final List<Day7Item> items = [];
+
+      // 7일 × 3시간 간격 샘플 생성
+      for (int d = 0; d < 7; d++) {
+        for (int h = 0; h < 24; h += 3) {
+          final t = DateTime(now.year, now.month, now.day + d, h);
+          items.add(
+            Day7Item(
+              time: t,
+              sky: (h < 12) ? '맑음' : '구름조금',
+              skyCode: (h < 12) ? '1' : '2',
+              rainProb: (h == 15 && d.isEven) ? 30 : 0,
+              rainAmtMm: (h == 15 && d.isEven) ? 1.2 : 0.0,
+              tempC: 24.0 + d + (h / 6),
+              // 대충 오르는 곡선
+              humidity: 60 + (h % 4) * 5,
+              // 60~75
+              windDir: 'S',
+              windSpd: 1.5 + d * 0.3,
+              wavePrd: 6.0 + (h % 5) * 0.3,
+              waveHt: 0.3 + (h % 6) * 0.05,
+              waveDir: 'S',
+            ),
+          );
+        }
+      }
+
+      items.sort((a, b) => a.time.compareTo(b.time));
       return items;
     }
 
-    // === 실제 API 호출 경로 (키 받으면 _useMock=false 로 전환) ===
+    // === 실제 API 호출 (키 받으면 _useMock=false로 전환) ===
     final url = Uri.parse('$baseUrl/api/weather/day7?lat=$lat&lon=$lon');
     final res = await http.get(url);
     if (res.statusCode != 200) {
@@ -192,7 +105,8 @@ class WeatherApi {
     }
     final Map<String, dynamic> j = json.decode(res.body);
     final List list = j['weather'] ?? [];
-    final items = list.map((e) => Day7Item.fromJson(e)).toList().cast<Day7Item>();
+    final items = list.map((e) => Day7Item.fromJson(e)).toList().cast<
+        Day7Item>();
     items.sort((a, b) => a.time.compareTo(b.time));
     return items;
   }
