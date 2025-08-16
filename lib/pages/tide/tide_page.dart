@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'tide_models.dart';
 import 'tide_services.dart';
+import '../../app_bottom_nav.dart';
+
 
 // ── Mock ─────────────────────────
 const _mockJson = [
@@ -381,6 +383,7 @@ class _TidePageState extends State<TidePage> {
           : error != null
           ? _buildError(error!)
           : _buildContent(),
+    bottomNavigationBar: const AppBottomNav(currentIndex: 2)
     );
   }
 
