@@ -1,7 +1,7 @@
 // lib/pages/weather/weather_page.dart
 import 'package:flutter/material.dart';
 
-import '../app_bottom_nav.dart';
+import '../../app_bottom_nav.dart';
 
 class WeatherPage extends StatelessWidget {
   const WeatherPage({super.key});

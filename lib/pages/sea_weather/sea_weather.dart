@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../app_bottom_nav.dart';
 import '../../routes.dart';
-// ⬇️ AppBottomNav 경로에 맞춰 수정
 
-import '../app_bottom_nav.dart';
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
