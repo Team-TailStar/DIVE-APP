@@ -19,7 +19,7 @@ class WeatherApi {
     final base = (Env.API_BASE_URL.isEmpty)
         ? 'https://www.badatime.com/DIVE'
         : Env.API_BASE_URL.replaceAll(RegExp(r'/$'), '');
-    final key  = Env.WEATHER_SERVICE_KEY;
+    final key  = Env.BADA_SERVICE_KEY;
     return Uri.parse('$base/forecast').replace(queryParameters: {
       'lat': lat.toString(),
       'lon': lon.toString(),

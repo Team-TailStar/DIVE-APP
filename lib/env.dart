@@ -5,8 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 class Env {
   static late final String AIRKOREA_SERVICE_KEY;
   static late final String API_BASE_URL;
-  static late final String WEATHER_SERVICE_KEY;
-  static late final bool USE_TIDE_MOCK;
+  static late final String BADA_SERVICE_KEY;
 
   static bool _loaded = false;
   static Future<void>? _loading; // ← 중복 로딩 방지
@@ -24,10 +23,9 @@ class Env {
 
     AIRKOREA_SERVICE_KEY = (j['AIRKOREA_SERVICE_KEY'] ?? '').toString();
     API_BASE_URL        = (j['API_BASE_URL'] ?? '').toString();
-    WEATHER_SERVICE_KEY = (j['WEATHER_SERVICE_KEY'] ?? '').toString();
+    BADA_SERVICE_KEY = (j['BADA_SERVICE_KEY'] ?? '').toString();
 
     final mockRaw = (j['USE_TIDE_MOCK'] ?? 'false').toString().trim().toLowerCase();
-    USE_TIDE_MOCK = mockRaw == 'true' || mockRaw == '1' || mockRaw == 'yes';
 
     _loaded = true;
     _loading = null;
