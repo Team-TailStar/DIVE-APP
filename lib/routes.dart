@@ -30,8 +30,6 @@ class RouteGenerator {
       case Routes.regionSelect:
         return _page(const _DummyRegionPage());
 
-      case Routes.tempCompare:
-        return _page(const TempComparePage());
 
       case Routes.fishingPointMain:
         return _page(const FishingPointMainPage());
