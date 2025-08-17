@@ -18,6 +18,20 @@ class WeatherHourlyList extends StatelessWidget {
     final items = _filterByTab(all, tab);
     if (items.isEmpty) return _emptyBox('예보 정보가 없습니다.');
 
+    // ==== 하이라이트 인덱스 계산 (현재 시각에 가장 가까운 시간) ====
+    final now = DateTime.now();
+    int hl = 0;
+    int best = 1 << 30;
+    for (int i = 0; i < items.length; i++) {
+      final diff = (items[i].time.difference(now)).inMinutes.abs();
+      if (diff < best) {
+        best = diff;
+        hl = i;
+      }
+    }
+    // 혹시라도 방어적으로 한 번 더 클램프
+    hl = (hl < 0) ? 0 : (hl >= items.length ? items.length - 1 : hl);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -43,7 +57,7 @@ class WeatherHourlyList extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (_, i) {
                 final it = items[i];
-                final highlight = i == 2;
+                final highlight = i == hl; // ← 고정 2 대신 계산된 인덱스 사용
                 return _hourCard(
                   time: dfHour.format(it.time),
                   temp: '${it.tempC.round()}°C',
@@ -57,6 +71,7 @@ class WeatherHourlyList extends StatelessWidget {
       ],
     );
   }
+
 
   Widget _hourCard({required String time, required String temp, required IconData icon, bool highlight = false}) {
     return Container(

@@ -30,13 +30,35 @@ class TideDay {
     return DateTime(y, m, d);
   }
 
-  /// 일출/일몰 분리
-  String get sunrise => sun.contains('/') ? sun.split('/')[0] : '';
-  String get sunset  => sun.contains('/') ? sun.split('/')[1] : '';
-
+  String get sunrise {
+    if (!sun.contains('/')) return '';
+    final parts = sun.split('/');
+    if (parts.isEmpty) return '';
+    final v = parts[0].trim();
+    return (v == '----') ? '' : v;
+  }
+  String get sunset {
+    if (!sun.contains('/')) return '';
+    final parts = sun.split('/');
+    if (parts.length < 2) return '';
+    final v = parts[1].trim();
+    return (v == '----') ? '' : v;
+  }
   /// 월출/월몰 분리
-  String get moonrise => moon.contains('/') ? moon.split('/')[0] : '';
-  String get moonset  => moon.contains('/') ? moon.split('/')[1] : '';
+  String get moonrise {
+    if (!moon.contains('/')) return '';
+    final parts = moon.split('/');
+    if (parts.isEmpty) return '';
+    final v = parts[0].trim();
+    return (v == '----') ? '' : v;
+  }
+  String get moonset {
+    if (!moon.contains('/')) return '';
+    final parts = moon.split('/');
+    if (parts.length < 2) return '';
+    final v = parts[1].trim();
+    return (v == '----') ? '' : v;
+  }
 }
 
 /// 간만조 이벤트(간조1/만조1/간조2/만조2)
@@ -55,7 +77,7 @@ class TideEvent {
     required this.delta,
   });
 
-  /// "07:51" -> "07:51 AM" (로케일 독립적으로 AM/PM)
+
   String toAmPm() {
     try {
       final now = DateTime.now();
@@ -67,41 +89,43 @@ class TideEvent {
     }
   }
 
-  /// 파서: "07:51 (136) ▲ +54" 형태
   static TideEvent? parse(String raw, {required String label}) {
-    if (raw.trim().isEmpty) return null;
+    final s = raw.trim();
+    if (s.isEmpty) return null;
 
-    // 시간
-    final timeMatch = RegExp(r'(\d{2}:\d{2})').firstMatch(raw);
-    final time = timeMatch?.group(1) ?? '';
+    // 1) 시간: 문자열 어디에 있어도 허용 (00:32 포함)
+    final t = RegExp(r'([0-2]?\d):([0-5]\d)').firstMatch(s);
+    if (t == null) return null; // 시간 없으면 그때만 null
+    final h = int.parse(t.group(1)!);
+    final m = int.parse(t.group(2)!);
+    final hhmm = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 
-    // 높이(cm)
-    final heightMatch = RegExp(r'\((\-?\d+(?:\.\d+)?)\)').firstMatch(raw);
-    final height = double.tryParse(heightMatch?.group(1) ?? '');
+    // 2) 높이(cm): 괄호 안 첫 숫자. 없으면 0.0으로 처리(드문 응답 변형 대비)
+    final hm = RegExp(r'\(([-+]?\d+(?:\.\d+)?)\)').firstMatch(s);
+    final height = double.tryParse(hm?.group(1) ?? '') ?? 0.0;
 
-    // 만조/간조
-    final arrowMatch = RegExp(r'(▲|▼)').firstMatch(raw);
-    final arrow = arrowMatch?.group(1);
-    final kind = (arrow == '▲') ? '만조' : '간조';
-
-    // 증감(선택)
-    final deltaMatch = RegExp(r'([+\-]\d+(?:\.\d+)?)').allMatches(raw).toList();
-    // 맨 뒤 숫자를 증감으로 간주(예: -13, +83.5 …). 괄호안 높이와 중복될 수 있어 마지막 항목을 사용
-    double? delta;
-    if (deltaMatch.isNotEmpty) {
-      final last = deltaMatch.last.group(1)!;
-      // 괄호 속 높이 그대로 잡히는 케이스 방지: 괄호 뒤쪽 기호에 가깝게 매칭되므로 보통 OK
-      delta = double.tryParse(last);
+    // 3) 만조/간조: ▲/▼. 없으면 기본 '만조'로 처리해 드랍 방지
+    String kind = '만조';
+    final am = RegExp(r'(▲|▼)').firstMatch(s);
+    if (am != null) {
+      kind = (am.group(1) == '▼') ? '간조' : '만조';
     }
 
-    if (time.isEmpty || height == null || kind.isEmpty) return null;
-
+    // 4) 증감: 마지막 +/-숫자. 없으면 null
+    final dm = RegExp(r'([+\-]\d+(?:\.\d+)?)').allMatches(s).toList();
+    double? delta;
+    if (dm.isNotEmpty) {
+      delta = double.tryParse(dm.last.group(1)!);
+    }
+    print('PARSED -> [$raw] => $hhmm / $height / $kind / $delta');
     return TideEvent(
       label: label,
-      hhmm: time,
+      hhmm: hhmm,
       heightCm: height,
       type: kind,
       delta: delta,
     );
   }
+
+
 }

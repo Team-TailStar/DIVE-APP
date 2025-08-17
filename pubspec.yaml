@@ -13,13 +13,17 @@ dependencies:
   http: ^1.2.2
   intl: ^0.20.2
   geolocator: ^12.0.0
+
+  geocoding: ^2.2.0
+  flutter_localizations:
+    sdk: flutter
+
   cupertino_icons: ^1.0.8
 
-  # === 지도/위치/딥링크 ===
   flutter_naver_map: ^1.4.1+1
   url_launcher: ^6.3.0
 
-  # ✅ 여기 안에 넣어야 함!
+
   flutter_localizations:
     sdk: flutter
 
@@ -29,4 +33,7 @@ dev_dependencies:
   flutter_lints: ^5.0.0
 
 flutter:
+  assets:
+    - assets/env.json
+ 
   uses-material-design: true
