@@ -6,31 +6,55 @@ class Env {
   static late final String AIRKOREA_SERVICE_KEY;
   static late final String API_BASE_URL;
   static late final String BADA_SERVICE_KEY;
+  static late final bool   USE_TIDE_MOCK;
 
   static bool _loaded = false;
-  static Future<void>? _loading; // ← 중복 로딩 방지
+  static Future<void>? _loading; // 동시 호출 방지
 
+  // 외부 진입점
   static Future<void> load() async {
     if (_loaded) return;
-    if (_loading != null) return _loading; // 이미 로딩 중이면 그 Future 반환
+    if (_loading != null) {
+      // 이미 로딩 중이면 완료까지 기다리고 리턴
+      await _loading;
+      return;
+    }
     _loading = _doLoad();
-    await _loading;
+    try {
+      await _loading;
+    } finally {
+      _loading = null; // 누수 방지
+    }
   }
 
   static Future<void> _doLoad() async {
     final raw = await rootBundle.loadString('assets/env.json');
-    final Map<String, dynamic> j = json.decode(raw);
+    if (raw.trim().isEmpty) {
+      throw StateError('assets/env.json is empty');
+    }
 
-    AIRKOREA_SERVICE_KEY = (j['AIRKOREA_SERVICE_KEY'] ?? '').toString();
-    API_BASE_URL        = (j['API_BASE_URL'] ?? '').toString();
-    BADA_SERVICE_KEY = (j['BADA_SERVICE_KEY'] ?? '').toString();
+    final Map<String, dynamic> j = json.decode(raw) as Map<String, dynamic>;
 
-    final mockRaw = (j['USE_TIDE_MOCK'] ?? 'false').toString().trim().toLowerCase();
+    String _s(dynamic v, {String or = ''}) => (v ?? or).toString().trim();
+    bool _b(dynamic v, {bool or = false}) {
+      if (v is bool) return v;
+      final s = v?.toString().trim().toLowerCase();
+      if (s == 'true') return true;
+      if (s == 'false') return false;
+      return or;
+    }
+
+    AIRKOREA_SERVICE_KEY = _s(j['AIRKOREA_SERVICE_KEY']);
+    API_BASE_URL         = _s(j['API_BASE_URL']);
+    BADA_SERVICE_KEY     = _s(j['BADA_SERVICE_KEY']);
+    USE_TIDE_MOCK        = _b(j['USE_TIDE_MOCK']);
+
+    // (선택) 필수 키 검증: 개발 중이라면 assert로 막아두면 빨리 발견 가능
+    assert(API_BASE_URL.isNotEmpty, 'API_BASE_URL is required in assets/env.json');
 
     _loaded = true;
-    _loading = null;
   }
 
-  // 어디서든 “불러와져 있지 않으면 로드” 하도록 노출
+  // 어디서든 “불러와져 있지 않으면 로드”
   static Future<void> ensureLoaded() => _loaded ? Future.value() : load();
 }

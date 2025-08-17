@@ -1,9 +1,7 @@
-// lib/pages/weather/air_quality_service.dart
-import 'dart:convert';
+
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 import 'airkorea_api.dart';
-import 'weather_models.dart';
 
 class AirQualitySummary {
   final String pm10;  // 미세먼지
@@ -52,7 +50,7 @@ class AirQualityService {
     final o3F   = await AirKoreaApi.fetchLatestForNow(informCode: 'O3');
 
     // 등급 선택 로직 (해당 지역 → 없으면 아무 지역 첫 값 → 정보없음)
-    String _pick(DustForecast? f) {
+    String pick(DustForecast? f) {
       if (f == null) return '정보없음';
       final g = f.informGradeByRegion[regionKey];
       if (g != null && g.isNotEmpty) return g;
@@ -60,9 +58,9 @@ class AirQualityService {
       return '정보없음';
     }
 
-    final pm10 = _pick(pm10F);
-    final pm25 = _pick(pm25F);
-    final o3   = _pick(o3F);
+    final pm10 = pick(pm10F);
+    final pm25 = pick(pm25F);
+    final o3   = pick(o3F);
 
     // 메타: 발표/적용(가능하면 PM10 기준, 없으면 PM25→O3 순)
     final base = pm10F ?? pm25F ?? o3F;

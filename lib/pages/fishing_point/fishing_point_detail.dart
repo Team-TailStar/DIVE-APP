@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 
 import '../../models/fishing_point.dart';
+import '../../env.dart';
 
 class FishingPointDetailPage extends StatefulWidget {
   final FishingPoint point;
@@ -48,14 +49,18 @@ class _FishingPointDetailPageState extends State<FishingPointDetailPage> {
 
     final lat = widget.point.lat ?? 35.1151;
     final lon = widget.point.lng ?? 129.0415;
-    final url =
-        'https://www.badatime.com/DIVE/point?lat=$lat&lon=$lon&key=X2KN516OA5RAUL3GPCEFARGKHHKJQN';
+    final uri = Uri.parse(
+      '${Env.API_BASE_URL}/point?lat=$lat&lon=$lon&key=${Env.BADA_SERVICE_KEY}',
+    );
 
     try {
-      final res = await http.get(Uri.parse(url));
+      final res = await http.get(uri);
       if (res.statusCode != 200) {
         throw Exception('HTTP ${res.statusCode}');
       }
+
+      final decoded = utf8.decode(res.bodyBytes);
+      final root = jsonDecode(decoded);
 
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       final info = (j['info'] as Map).cast<String, dynamic>();

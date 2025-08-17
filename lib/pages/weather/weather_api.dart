@@ -86,7 +86,7 @@ class WeatherApi {
 
     final items = parsed.map<Day7Item>((raw) {
       final m = Map<String, dynamic>.from(raw as Map);
-      DateTime _parseYmdt(String v) {
+      DateTime parseYmdt(String v) {
         final s = v.trim();
         final y = int.parse(s.substring(0, 4));
         final mo = int.parse(s.substring(4, 6));
@@ -95,7 +95,7 @@ class WeatherApi {
         return DateTime(y, mo, d, h);
       }
 
-      T _firstOf<T>(List<String> keys) {
+      T firstOf<T>(List<String> keys) {
         final norm = <String, dynamic>{};
         for (final e in m.entries) {
           final nk = e.key.replaceAll(RegExp(r'[\u200B-\u200F\uFEFF]'), '');
@@ -108,32 +108,32 @@ class WeatherApi {
         return null as T;
       }
 
-      double _d(dynamic v) {
+      double d(dynamic v) {
         if (v == null) return 0;
         if (v is num) return v.toDouble();
         return double.tryParse(v.toString()) ?? 0;
       }
 
-      int _i(dynamic v) {
+      int i(dynamic v) {
         if (v == null) return 0;
         if (v is num) return v.toInt();
         return int.tryParse(v.toString()) ?? 0;
       }
 
-      final time = _parseYmdt((_firstOf<String>(['ymdt']) ?? '1970010100'));
+      final time = parseYmdt((firstOf<String>(['ymdt'])));
       return Day7Item(
         time: time,
-        sky: (_firstOf<String>(['sky']) ?? ''),
-        skyCode: (_firstOf<String>(['skycode', 'sky_code']) ?? ''),
-        rainProb: _i(_firstOf(['rain'])),
-        rainAmtMm: _d(_firstOf(['rainAmt', '﻿rainAmt'])),
-        tempC: _d(_firstOf(['temp', '﻿temp'])),
-        humidity: _i(_firstOf(['humidity', '﻿﻿humidity'])),
-        windDir: (_firstOf<String>(['winddir']) ?? ''),
-        windSpd: _d(_firstOf(['windspd', '﻿﻿windspd'])),
-        wavePrd: _d(_firstOf(['wavePrd', '﻿﻿﻿wavePrd'])),
-        waveHt: _d(_firstOf(['waveHt', 'pago', '﻿﻿﻿﻿waveHt'])),
-        waveDir: (_firstOf<String>(['waveDir']) ?? ''),
+        sky: (firstOf<String>(['sky'])),
+        skyCode: (firstOf<String>(['skycode', 'sky_code'])),
+        rainProb: i(firstOf(['rain'])),
+        rainAmtMm: d(firstOf(['rainAmt', '﻿rainAmt'])),
+        tempC: d(firstOf(['temp', '﻿temp'])),
+        humidity: i(firstOf(['humidity', '﻿﻿humidity'])),
+        windDir: (firstOf<String>(['winddir'])),
+        windSpd: d(firstOf(['windspd', '﻿﻿windspd'])),
+        wavePrd: d(firstOf(['wavePrd', '﻿﻿﻿wavePrd'])),
+        waveHt: d(firstOf(['waveHt', 'pago', '﻿﻿﻿﻿waveHt'])),
+        waveDir: (firstOf<String>(['waveDir'])),
       );
     }).toList()
       ..sort((a, b) => a.time.compareTo(b.time));

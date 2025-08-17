@@ -1,6 +1,4 @@
 // lib/pages/weather/weather_models.dart
-import 'package:intl/intl.dart';
-import 'sky_icon_mapper.dart';
 
 DateTime _parseYmdt10(String s) {
   if (s.length < 10) return DateTime.now();
