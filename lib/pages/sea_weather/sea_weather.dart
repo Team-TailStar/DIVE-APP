@@ -30,7 +30,6 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
           children: [
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -42,7 +41,6 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
               ],
             ),
             const SizedBox(height: 12),
-
             Row(
               children: [
                 _SelectableChip(
@@ -59,7 +57,6 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
               ],
             ),
             const SizedBox(height: 20),
-
             if (tab == '파도') const _WaveSectionApi() else const _TempSection(),
           ],
         ),
@@ -81,7 +78,6 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
   bool _showAll = false;
   String? error;
   List<SeaWave> waves = [];
-
   bool _sentToWatch = false;
 
   static const double _lat = 35.1151;
@@ -96,12 +92,10 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
   Future<void> _fetch() async {
     try {
       final uri = Uri.parse(
-        '${Env.API_BASE_URL}?lat=$_lat&lon=$_lon&key=${Env.BADA_SERVICE_KEY}',
+        '${Env.API_BASE_URL}/forecast?lat=$_lat&lon=$_lon&key=${Env.BADA_SERVICE_KEY}',
       );
       final res = await http.get(uri);
-      if (res.statusCode != 200) {
-        throw Exception('HTTP ${res.statusCode}');
-      }
+      if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
       final decoded = utf8.decode(res.bodyBytes);
       final body = json.decode(decoded);
 
@@ -125,7 +119,6 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
       });
 
       _sendOnceToWatchIfPossible();
-
     } catch (e) {
       setState(() {
         error = e.toString();
@@ -141,9 +134,7 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
     final today = DateTime(now.year, now.month, now.day);
 
     final todays = waves.where((w) =>
-    w.time.year == today.year &&
-        w.time.month == today.month &&
-        w.time.day == today.day
+    w.time.year == today.year && w.time.month == today.month && w.time.day == today.day
     ).toList();
 
     final basis = todays.isNotEmpty
@@ -164,14 +155,13 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
 
     try {
       await WearBridge.sendWeather({
-        "windspd": "",
+        "windspd": "",               // 필요하면 채워서 보내세요
         "winddir": dir,
         "waveHt": avgHt.toStringAsFixed(1),
         "obs_wt": _fmtDate(obs),
       });
       _sentToWatch = true;
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   @override
@@ -199,9 +189,7 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
     final today = DateTime(now.year, now.month, now.day);
 
     final todays = waves.where((w) =>
-    w.time.year == today.year &&
-        w.time.month == today.month &&
-        w.time.day == today.day
+    w.time.year == today.year && w.time.month == today.month && w.time.day == today.day
     ).toList();
 
     final basis = todays.isNotEmpty
@@ -229,15 +217,11 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
       children: [
         Center(child: Text(_formatKDate(today), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
         const SizedBox(height: 16),
-
         _TopThreeCards(period: topPeriod, height: topHeight, dir: topDir),
-
         const SizedBox(height: 24),
         const Text('파도 예측', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
-
         _ForecastBlock(rows: rows),
-
         const SizedBox(height: 6),
         Align(
           alignment: Alignment.centerLeft,
@@ -251,7 +235,6 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
     );
   }
 }
-
 
 class _TopThreeCards extends StatelessWidget {
   final String period;
@@ -316,8 +299,6 @@ class _TempSectionState extends State<_TempSection> {
   bool loading = true;
   String? error;
   List<SeaStationTemp> stations = [];
-
-
   bool _sentToWatch = false;
 
   static const double _lat = 35.1151;
@@ -350,7 +331,6 @@ class _TempSectionState extends State<_TempSection> {
       });
 
       _sendOnceToWatchIfPossible();
-
     } catch (e) {
       setState(() {
         error = e.toString();
@@ -371,10 +351,8 @@ class _TempSectionState extends State<_TempSection> {
       }).toList();
 
       await WearBridge.sendTempStations(payload);
-
       _sentToWatch = true;
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   @override
@@ -410,7 +388,6 @@ class _TempSectionState extends State<_TempSection> {
       children: [
         Center(child: Text(_formatKDate(today), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
         const SizedBox(height: 16),
-
         Card(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
@@ -465,11 +442,9 @@ class _TempSectionState extends State<_TempSection> {
             ),
           ),
         ),
-
         const SizedBox(height: 18),
         const Text('주변 관측소 수온', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
-
         Row(
           children: [
             _SelectableChip(label: '그래프', selected: mode == '그래프', onTap: () => setState(() => mode = '그래프')),
@@ -478,7 +453,6 @@ class _TempSectionState extends State<_TempSection> {
           ],
         ),
         const SizedBox(height: 12),
-
         if (mode == '그래프')
           SizedBox(
             height: 180,
@@ -513,14 +487,12 @@ class _TempSectionState extends State<_TempSection> {
   }
 }
 
-
 class TempComparePage extends StatefulWidget {
   const TempComparePage({super.key});
 
   @override
   State<TempComparePage> createState() => _TempComparePageState();
 }
-
 
 class _TempComparePageState extends State<TempComparePage> {
   bool loading = true;
@@ -611,7 +583,6 @@ class _TempComparePageState extends State<TempComparePage> {
     );
   }
 }
-
 
 class _SelectableChip extends StatelessWidget {
   final String label;
@@ -941,6 +912,7 @@ class _MiniLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MiniLinePainter oldDelegate) => oldDelegate.secondary != secondary;
 }
+
 DateTime _kDateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 
 String _formatKDate(DateTime dt) {

@@ -1,27 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.dive_app">
 
-    <!-- Permissions -->
+    <!-- Android 12+ 핵심 권한 -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- 주변 기기로 광고 송출할 때만 필요 -->
+    <!-- <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" /> -->
+
+    <!-- 하위 호환 (Android 11↓ 또는 일부 기기) -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
-    <!-- (옵션) 포어그라운드 서비스가 있다면 활성화 -->
-    <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> -->
-    <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" /> -->
+    <!-- 위치 권한 (정밀 위치가 필요하다면 둘 다 선언) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Wear 지원(필수 아님) -->
-    <uses-feature
-        android:name="android.hardware.type.watch"
-        android:required="false" />
+    <!-- 네트워크 -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- (네이버맵 등 스킴 조회용) -->
+    <!-- (선택) 백그라운드에서 지속 스캔/연결 시 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- (권장) BLE 하드웨어 선언 -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -31,12 +37,13 @@
 
     <application
         android:name="${applicationName}"
-        android:label="dive_app">
+        android:label="dive_app"
+        android:usesCleartextTraffic="true"
+        android:enableOnBackInvokedCallback="true">
 
         <activity
             android:name=".MainActivity"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -50,17 +57,12 @@
                 android:resource="@style/NormalTheme" />
         </activity>
 
-        <!-- ✅ Wear 데이터 레이어 리스너: 반드시 application의 직계 자식 + exported=true -->
         <service
             android:name=".wear.PhoneWearListenerService"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.google.android.gms.wearable.BIND_LISTENER" />
-            </intent-filter>
-        </service>
+            android:enabled="true"
+            android:exported="true"
+            tools:ignore="MissingClass" />
 
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
+        <meta-data android:name="flutterEmbedding" android:value="2" />
     </application>
 </manifest>

@@ -1,6 +1,8 @@
+// lib/pages/watch_connect/watch_connect_page.dart
 import 'package:flutter/material.dart';
 import '../../app_bottom_nav.dart';
-
+import '../../ble/ble_manager.dart';
+import 'watch_scan_page.dart'; // ← 새 스캔 페이지로 이동용
 
 class WatchConnectPage extends StatefulWidget {
   const WatchConnectPage({super.key});
@@ -10,72 +12,134 @@ class WatchConnectPage extends StatefulWidget {
 }
 
 class _WatchConnectPageState extends State<WatchConnectPage> {
-  bool connected = true; // TODO: 실제 연결 상태와 바인딩
-  String watchName = "Galaxy Watch4 (0QBB)";
+  bool _connecting = false;
 
-  // 가짜 데이터 (실데이터 연결 시 setState로 갱신)
-  int heartRate = 76;
-  int steps = 4820;
-  int calories = 357;
-  Duration sleep = const Duration(hours: 6, minutes: 40);
-  DateTime lastSync = DateTime.now().subtract(const Duration(minutes: 3));
+  @override
+  void initState() {
+    super.initState();
+    // 자동 스캔을 원하면 주석 해제
+    // BleManager.I.scanAndConnect(containsName: "Watch").catchError((_) {});
+  }
+
+  Future<void> _connect() async {
+    if (_connecting) return;
+    setState(() => _connecting = true);
+    try {
+      // 권한/스위치 사전 준비
+      final ready = await BleManager.I.prepare();
+      if (!ready) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('블루투스 권한/설정을 확인해 주세요.')),
+        );
+        return;
+      }
+      // 바로 자동 연결 시도(이름에 "Watch" 포함)
+      await BleManager.I.scanAndConnect(containsName: "Watch");
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('연결 실패: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _connecting = false);
+    }
+  }
+
+  void _openDrawerSafe(BuildContext ctx) {
+    // Builder 컨텍스트 또는 maybeOf로 안전하게 열기
+    final s = Scaffold.maybeOf(ctx);
+    s?.openDrawer();
+  }
+
+  void _openScanPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const WatchScanPage()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (connected) {
-      // ✅ 연결됨: 건강 UI 바로 렌더
-      return Scaffold(
-        drawer: _SideMenu(onDisconnect: () {
-          setState(() => connected = false);
-          Navigator.pop(context);
-        }),
-        body: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: _Header(
-                  title: watchName,
-                  onSearch: () {}, // 필요 시 검색 연결
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: _HealthSection(
-                  heartRate: heartRate,
-                  steps: steps,
-                  calories: calories,
-                  sleep: sleep,
-                  lastSync: lastSync,
-                  onRefresh: _refreshFake, // TODO: 진짜 동기화 함수 연결
-                  onOpenSettings: () => Scaffold.of(context).openDrawer(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        bottomNavigationBar: const AppBottomNav(currentIndex: 4),
-      );
-    }
+    return ValueListenableBuilder<bool>(
+      valueListenable: BleManager.I.isConnected,
+      builder: (context, connected, _) {
+        return connected ? _buildConnected(context) : _buildDisconnected(context);
+      },
+    );
+  }
 
-    // ❌ 미연결: 연결 안내만 표시
-    final theme = Theme.of(context);
+  Scaffold _buildConnected(BuildContext context) {
     return Scaffold(
-      drawer: _SideMenu(onDisconnect: () {
-        setState(() => connected = false);
-        Navigator.pop(context);
+      drawer: _SideMenu(onDisconnect: () async {
+        await BleManager.I.disconnect();
+        if (mounted) Navigator.pop(context);
       }),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
-              child: _Header(title: watchName, onSearch: () {}),
+              child: ValueListenableBuilder<String?>(
+                valueListenable: BleManager.I.deviceName,
+                builder: (context, name, _) => _Header(
+                  title: name ?? "BLE Watch",
+                  onSearch: _openScanPage, // ← 스캔 화면으로
+                  onOpenDrawer: () => _openDrawerSafe(context),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: ValueListenableBuilder<int?>(
+                valueListenable: BleManager.I.heartRate,
+                builder: (context, hr, _) => _HealthSection(
+                  heartRate: hr ?? 0,
+                  steps: 0, // 대부분 벤더 SDK 필요
+                  calories: 0,
+                  sleep: const Duration(),
+                  lastSync: DateTime.now(),
+                  onRefresh: () async {
+                    await BleManager.I.refresh();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('데이터가 새로고침되었습니다.')),
+                    );
+                  },
+                  onOpenSettings: () => _openDrawerSafe(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: const AppBottomNav(currentIndex: 4),
+    );
+  }
+
+  Scaffold _buildDisconnected(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      drawer: _SideMenu(onDisconnect: () async {
+        await BleManager.I.disconnect();
+        if (mounted) Navigator.pop(context);
+      }),
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: _Header(
+                title: "BLE Watch",
+                onSearch: _openScanPage, // ← 스캔 화면으로
+                onOpenDrawer: () => _openDrawerSafe(context),
+              ),
             ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: _ConnectionCard(
                   connected: false,
-                  onTapConnect: () => setState(() => connected = true),
-                  onTapManage: () => Scaffold.of(context).openDrawer(),
+                  connecting: _connecting,
+                  onTapConnect: _connect,
+                  onTapManage: _openScanPage, // ← 관리 대신 스캔으로 이동
                 ),
               ),
             ),
@@ -85,8 +149,10 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("워치를 연결해 주세요",
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      "워치를 연결해 주세요",
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       "건강 데이터를 보려면 워치 연결이 필요해요. 연결 후 자동으로 건강 화면이 열립니다.",
@@ -95,13 +161,30 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.link),
-                        label: const Text("연결하러 가기"),
-                        onPressed: () => setState(() => connected = true),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            icon: _connecting
+                                ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                                : const Icon(Icons.link),
+                            label: Text(_connecting ? "연결 중..." : "자동 연결"),
+                            onPressed: _connecting ? null : _connect,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _openScanPage,
+                            icon: const Icon(Icons.search),
+                            label: const Text("주변 기기 보기"),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -113,20 +196,9 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
       bottomNavigationBar: const AppBottomNav(currentIndex: 4),
     );
   }
-
-  void _refreshFake() {
-    // TODO: 여기서 실제 동기화/데이터 요청 수행
-    setState(() {
-      heartRate = (60 + (heartRate + 3) % 40);
-      steps += 120;
-      calories += 12;
-      lastSync = DateTime.now();
-    });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('데이터가 새로고침되었습니다.')));
-  }
 }
 
-/* -------------------- 건강 섹션 위젯 -------------------- */
+/* ==================== 건강 섹션 위젯 ==================== */
 
 class _HealthSection extends StatelessWidget {
   const _HealthSection({
@@ -203,15 +275,22 @@ class _HealthSection extends StatelessWidget {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text("$heartRate",
-                              style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800, height: 1.0)),
+                          Text(
+                            "$heartRate",
+                            style: theme.textTheme.displaySmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              height: 1.0,
+                            ),
+                          ),
                           const SizedBox(width: 6),
                           Text("bpm", style: theme.textTheme.titleMedium),
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(_fmtLastSync(lastSync),
-                          style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      Text(
+                        _fmtLastSync(lastSync),
+                        style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                      ),
                     ],
                   ),
                 ),
@@ -238,25 +317,25 @@ class _HealthSection extends StatelessWidget {
               _MetricCard(
                 icon: Icons.directions_walk,
                 title: "걸음 수",
-                value: "$steps",
-                unit: "steps",
+                value: steps > 0 ? "$steps" : "-",
+                unit: steps > 0 ? "steps" : "",
               ),
               _MetricCard(
                 icon: Icons.local_fire_department,
                 title: "소모 칼로리",
-                value: "$calories",
-                unit: "kcal",
+                value: calories > 0 ? "$calories" : "-",
+                unit: calories > 0 ? "kcal" : "",
               ),
               _MetricCard(
                 icon: Icons.nightlight_round,
                 title: "수면",
-                value: _fmtSleep(sleep),
+                value: sleep.inMinutes > 0 ? _fmtSleep(sleep) : "-",
                 unit: "",
               ),
-              _MetricCard(
+              const _MetricCard(
                 icon: Icons.monitor_heart,
                 title: "최고/최저 심박",
-                value: "112 / 58",
+                value: "— / —",
                 unit: "bpm",
               ),
             ],
@@ -289,12 +368,18 @@ class _HealthSection extends StatelessWidget {
   }
 }
 
-/* -------------------- 공용 파츠 (기존 유지) -------------------- */
+/* ==================== 공용 파츠 ==================== */
 
 class _Header extends StatelessWidget {
-  const _Header({required this.title, required this.onSearch});
+  const _Header({
+    required this.title,
+    required this.onSearch,
+    required this.onOpenDrawer,
+  });
+
   final String title;
   final VoidCallback onSearch;
+  final VoidCallback onOpenDrawer;
 
   @override
   Widget build(BuildContext context) {
@@ -302,9 +387,10 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
       child: Row(
         children: [
+          // Builder 없이도 안전하게 열기
           IconButton(
             icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+            onPressed: onOpenDrawer,
             tooltip: "더보기",
           ),
           const SizedBox(width: 4),
@@ -381,7 +467,13 @@ class _MetricCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(value, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800, height: 1.0)),
+              Text(
+                value,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  height: 1.0,
+                ),
+              ),
               if (unit.isNotEmpty) ...[
                 const SizedBox(width: 6),
                 Text(unit, style: theme.textTheme.titleMedium),
@@ -397,11 +489,13 @@ class _MetricCard extends StatelessWidget {
 class _ConnectionCard extends StatelessWidget {
   const _ConnectionCard({
     required this.connected,
+    required this.connecting,
     required this.onTapConnect,
     required this.onTapManage,
   });
 
   final bool connected;
+  final bool connecting;
   final VoidCallback onTapConnect;
   final VoidCallback onTapManage;
 
@@ -416,7 +510,12 @@ class _ConnectionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border),
         boxShadow: [
-          BoxShadow(blurRadius: 22, spreadRadius: -4, offset: const Offset(0, 8), color: Colors.black.withOpacity(.05)),
+          BoxShadow(
+            blurRadius: 22,
+            spreadRadius: -4,
+            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(.05),
+          ),
         ],
       ),
       padding: const EdgeInsets.all(16),
@@ -428,8 +527,11 @@ class _ConnectionCard extends StatelessWidget {
               shape: BoxShape.circle,
               color: connected ? Colors.green.withOpacity(.12) : Colors.orange.withOpacity(.12),
             ),
-            child: Icon(connected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
-                size: 28, color: connected ? Colors.green : Colors.orange),
+            child: Icon(
+              connected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
+              size: 28,
+              color: connected ? Colors.green : Colors.orange,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -444,7 +546,17 @@ class _ConnectionCard extends StatelessWidget {
           if (connected)
             TextButton(onPressed: onTapManage, child: const Text("관리"))
           else
-            FilledButton(onPressed: onTapConnect, child: const Text("연결")),
+            FilledButton.icon(
+              onPressed: connecting ? null : onTapConnect,
+              icon: connecting
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+                  : const Icon(Icons.link),
+              label: Text(connecting ? "연결 중..." : "연결"),
+            ),
         ],
       ),
     );
@@ -462,10 +574,13 @@ class _SideMenu extends StatelessWidget {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const ListTile(
-              leading: Icon(Icons.account_circle_outlined),
-              title: Text("내 워치"),
-              subtitle: Text("Galaxy Watch4"),
+            ValueListenableBuilder<String?>(
+              valueListenable: BleManager.I.deviceName,
+              builder: (context, name, _) => ListTile(
+                leading: const Icon(Icons.account_circle_outlined),
+                title: const Text("내 워치"),
+                subtitle: Text(name ?? "BLE Device"),
+              ),
             ),
             const Divider(),
             ListTile(
