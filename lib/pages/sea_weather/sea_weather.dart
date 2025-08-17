@@ -4,7 +4,6 @@ import '../../routes.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../wear_bridge.dart';
-import 'lib/wear_bridge.dart';
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -525,6 +524,7 @@ class TempComparePage extends StatefulWidget {
   @override
   State<TempComparePage> createState() => _TempComparePageState();
 }
+
 
 class _TempComparePageState extends State<TempComparePage> {
   bool loading = true;

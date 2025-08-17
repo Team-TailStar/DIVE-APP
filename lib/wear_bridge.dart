@@ -1,3 +1,6 @@
+
+// lib/wear_bridge.dart
+
 import 'package:flutter/services.dart';
 
 class WearBridge {

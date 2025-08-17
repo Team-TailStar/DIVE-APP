@@ -35,7 +35,7 @@ class MainActivity : FlutterActivity() {
                             sendTempToWatch(this, args)
                             result.success(null)
                         }
-                        // ✅ 추가: 낚시포인트 리스트 전송
+
                         "sendFishingPoints" -> {
                             sendFishingPointsToWatch(this, args)
                             result.success(null)
@@ -48,9 +48,6 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    // ---------------------------
-    // Wear OS Data Layer helpers
-    // ---------------------------
 
     private fun dataClient(context: Context): DataClient =
         Wearable.getDataClient(context)
@@ -59,10 +56,8 @@ class MainActivity : FlutterActivity() {
         val req = PutDataMapRequest.create(path)
         val map = req.dataMap
 
-        // 공통 타임스탬프(변경 감지용)
         map.putLong("timestamp", System.currentTimeMillis())
 
-        // 지원 타입만 안전하게 넣기
         payload.forEach { (k, v) ->
             when (v) {
                 null -> { /* skip */ }
@@ -86,43 +81,41 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun sendWeatherToWatch(context: Context, args: Map<String, Any?>) {
-        // 예: { "location": "Busan", "tempC": 26.4, "windKph": 12.3, "condition": "Cloudy" }
+
         val req = putMap("/weather", args)
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 
     private fun sendTideToWatch(context: Context, args: Map<String, Any?>) {
-        // 예: { "highTime": "06:10", "lowTime": "12:42", "heightM": 1.8 }
+
         val req = putMap("/tide", args)
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 
     private fun sendTempToWatch(context: Context, args: Map<String, Any?>) {
-        // 예: { "seaTempC": 22.1, "airTempC": 27.0 }
+
         val req = putMap("/temp", args)
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 
-    // ----------------------------------------------------
-    // ✅ 낚시포인트 리스트 -> DataMapArrayList 로 전송 (/fishing_points)
-    // ----------------------------------------------------
+
+
     private fun sendFishingPointsToWatch(context: Context, args: Map<String, Any?>) {
-        // Dart 쪽에서 {"points": [ { .. }, { .. } ]} 형태로 보냄
+        
         @Suppress("UNCHECKED_CAST")
         val points = (args["points"] as? List<Map<String, Any?>>) ?: emptyList()
 
         val req = PutDataMapRequest.create("/fishing_points")
         val map = req.dataMap
 
-        // 변경 감지용 타임스탬프
+
         map.putLong("timestamp", System.currentTimeMillis())
 
-        // 리스트 변환
+
         val dmaps = ArrayList<DataMap>(points.size)
         for (p in points) {
             val dm = DataMap()
 
-            // 문자열 필드
             dm.putString("name",      (p["name"] ?: "").toString())
             dm.putString("point_nm",  (p["point_nm"] ?: p["name"] ?: "").toString())
             dm.putString("addr",      (p["addr"] ?: "").toString())
@@ -133,7 +126,7 @@ class MainActivity : FlutterActivity() {
             dm.putString("point_dt",  (p["point_dt"] ?: "").toString())
             dm.putString("photo",     (p["photo"] ?: "").toString())
 
-            // 좌표/거리 숫자 필드
+
             dm.putDouble("lat", (p["lat"] as? Number)?.toDouble() ?: 0.0)
             dm.putDouble("lon", (p["lon"] as? Number)?.toDouble() ?: 0.0)
             dm.putDouble("distance_km", (p["distance_km"] as? Number)?.toDouble()
