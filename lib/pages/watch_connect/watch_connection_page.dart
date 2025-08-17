@@ -1,5 +1,6 @@
-
 import 'package:flutter/material.dart';
+import '../../app_bottom_nav.dart';
+import '../../routes.dart';
 
 class WatchConnectPage extends StatefulWidget {
   const WatchConnectPage({super.key});
@@ -15,7 +16,6 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textColor = theme.brightness == Brightness.dark ? Colors.white : Colors.black87;
 
     return Scaffold(
       drawer: _SideMenu(onDisconnect: () {
@@ -45,7 +45,10 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Text("시작하기", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                child: Text(
+                  "시작하기",
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
             SliverPadding(
@@ -103,7 +106,9 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
                       icon: Icons.notifications_active,
                       title: "알림 동기화",
                       subtitle: connected ? "켜짐" : "꺼짐",
-                      onTap: () {},
+                      onTap: () {
+                        // TODO: 알림 동기화 설정 이동
+                      },
                     ),
                   ],
                 ),
@@ -112,16 +117,60 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
           ],
         ),
       ),
+      bottomNavigationBar: const AppBottomNav(currentIndex: 4),
     );
   }
 
-  void _go(BuildContext context, String route) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("'$route' 페이지로 이동 (연결만 붙이면 됩니다)")),
-    );
+  void _go(BuildContext context, String key) {
+    switch (key) {
+      case '/weather':
+        Navigator.pushNamed(context, Routes.home);
+        break;
+
+      case '/seaWeather':
+        if (_canPopTo(context, Routes.seaWeather)) {
+          Navigator.pushNamed(context, Routes.seaWeather);
+        } else {
+          Navigator.pushNamed(context, '/seaWeather');
+        }
+        break;
+
+      case '/tide':
+        if (_canPopTo(context, Routes.tide)) {
+          Navigator.pushNamed(context, Routes.tide);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('물때 페이지 라우트를 먼저 등록해 주세요.')),
+          );
+        }
+        break;
+
+      case '/fishing':
+        Navigator.pushNamed(context, Routes.fishingPointMain);
+        break;
+
+      case '/health':
+        if (_canPopTo(context, Routes.health)) {
+          Navigator.pushNamed(context, Routes.health);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('건강 페이지 라우트를 먼저 등록해 주세요.')),
+          );
+        }
+        break;
+
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("'$key' 라우트가 아직 없어요.")),
+        );
+    }
+  }
+
+  bool _canPopTo(BuildContext context, String? routeName) {
+    if (routeName == null || routeName.isEmpty) return false;
+    return true;
   }
 }
-
 
 class _Header extends StatelessWidget {
   const _Header({required this.title, required this.onSearch});
@@ -185,7 +234,12 @@ class _ConnectionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border),
         boxShadow: [
-          BoxShadow(blurRadius: 22, spreadRadius: -4, offset: const Offset(0, 8), color: Colors.black.withOpacity(.05)),
+          BoxShadow(
+            blurRadius: 22,
+            spreadRadius: -4,
+            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(.05),
+          ),
         ],
       ),
       padding: const EdgeInsets.all(16),
@@ -197,8 +251,11 @@ class _ConnectionCard extends StatelessWidget {
               shape: BoxShape.circle,
               color: connected ? Colors.green.withOpacity(.12) : Colors.orange.withOpacity(.12),
             ),
-            child: Icon(connected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
-                size: 28, color: connected ? Colors.green : Colors.orange),
+            child: Icon(
+              connected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
+              size: 28,
+              color: connected ? Colors.green : Colors.orange,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -243,7 +300,12 @@ class _FeatureTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: cs.outlineVariant.withOpacity(.4)),
           boxShadow: [
-            BoxShadow(blurRadius: 16, spreadRadius: -6, offset: const Offset(0, 10), color: Colors.black.withOpacity(.05)),
+            BoxShadow(
+              blurRadius: 16,
+              spreadRadius: -6,
+              offset: const Offset(0, 10),
+              color: Colors.black.withOpacity(.05),
+            ),
           ],
         ),
         child: Padding(
@@ -254,9 +316,15 @@ class _FeatureTile extends StatelessWidget {
               const Spacer(),
               Icon(icon, size: 32),
               const SizedBox(height: 10),
-              Text(label, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 2),
-              Text("시작하기", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurface.withOpacity(.6))),
+              Text(
+                "시작하기",
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurface.withOpacity(.6)),
+              ),
             ],
           ),
         ),
@@ -304,9 +372,15 @@ class _SettingsRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
                     const SizedBox(height: 2),
-                    Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
                   ],
                 ),
               ),

@@ -1,3 +1,4 @@
+import 'package:dive_app/pages/tide/tide_page.dart';
 import 'package:flutter/material.dart';
 
 import 'pages/sea_weather/sea_weather.dart';
@@ -5,6 +6,7 @@ import 'pages/fishing_point/fishing_point_main.dart';
 import 'pages/fishing_point/fishing_point_detail.dart';
 import 'pages/weather/weather_page.dart';
 import 'package:geolocator/geolocator.dart';
+import 'pages/watch_connect/watch_connection_page.dart';
 
 class Routes {
   static const String home = '/';
@@ -12,6 +14,11 @@ class Routes {
   static const String tempCompare = '/temp-compare';
   static const String fishingPointMain = '/fishing-point';
   static const String fishingPointDetail = '/fishingPoint/detail';
+  static const String watchConnect = '/watch-connect';
+
+  static const String seaWeather = '/seaWeather';
+  static const String tide = '/tide';
+  static const String health = '/health';
 }
 
 class RouteGenerator {
@@ -32,8 +39,19 @@ class RouteGenerator {
       case Routes.fishingPointDetail:
         return _page(FishingPointDetailPage.from(settings.arguments));
 
+      case Routes.watchConnect:
+        return _page(const WatchConnectPage());
+
+      case Routes.seaWeather:
+        return _page(const SeaWeatherPage());
+
+      case Routes.tide:
+        return _page(const TidePage());
+
       default:
         return _page(const SeaWeatherPage());
+
+
     }
   }
 

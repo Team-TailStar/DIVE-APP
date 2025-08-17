@@ -1,5 +1,6 @@
 import 'package:dive_app/main.dart';
 import 'package:dive_app/pages/fishing_point/fishing_point_main.dart';
+import 'package:dive_app/pages/watch_connect/watch_connection_page.dart';
 import 'package:dive_app/pages/sea_weather/sea_weather.dart';
 import 'package:dive_app/pages/tide/tide_page.dart';
 import 'package:dive_app/pages/weather/weather_page.dart';
@@ -25,7 +26,7 @@ class AppBottomNav extends StatelessWidget {
         if (i == currentIndex) return;
 
         switch (i) {
-          case 0: // WeatherPage: 현재 위치로
+          case 0:
             final pos = await _getPosition(context);
             if (pos == null) return;
             _goReplace(context, WeatherPage(lat: pos.latitude, lon: pos.longitude));
@@ -41,6 +42,10 @@ class AppBottomNav extends StatelessWidget {
 
           case 3:
             _goReplace(context, const FishingPointMainPage());
+            break;
+
+          case 4:
+            _goReplace(context, const WatchConnectPage());
           default:
             break;
         }
@@ -50,11 +55,11 @@ class AppBottomNav extends StatelessWidget {
         BottomNavigationBarItem(icon: Icon(Icons.water), label: '바다 날씨'),
         BottomNavigationBarItem(icon: Icon(Icons.water_drop), label: '물때'),
         BottomNavigationBarItem(icon: Icon(Icons.place), label: '낚시 포인트'),
+        BottomNavigationBarItem(icon: Icon(Icons.watch), label: '워치'),
       ],
     );
   }
 
-  /// 위치 권한/서비스 체크 후 현재 좌표 반환
   Future<Position?> _getPosition(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
 
