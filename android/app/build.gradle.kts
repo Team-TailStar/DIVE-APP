@@ -7,7 +7,6 @@ plugins {
 android {
     namespace = "com.example.dive_app"
 
-    // 안정 버전 권장
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 

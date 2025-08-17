@@ -9,6 +9,7 @@ import '../../app_bottom_nav.dart';
 import '../../routes.dart';
 import '../../models/fishing_point.dart';
 import '../../wear_bridge.dart';
+import '../../env.dart';
 
 class FishingPointMainPage extends StatefulWidget {
   const FishingPointMainPage({super.key});
@@ -22,8 +23,9 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   static const double _originLat = 35.1151;
   static const double _originLon = 129.0415;
 
-  static const _apiUrl =
-      'https://www.badatime.com/DIVE/point?lat=$_originLat&lon=$_originLon&key=X2KN516OA5RAUL3GPCEFARGKHHKJQN';
+  Uri get _apiUri => Uri.parse(
+    '${Env.API_BASE_URL}/point?lat=$_originLat&lon=$_originLon&key=${Env.BADA_SERVICE_KEY}',
+  );
 
   static const _fallbackImg =
       'https://images.unsplash.com/photo-1508182311256-e3f6b475a2e4?auto=format&fit=crop&w=1080&q=80';
@@ -47,7 +49,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     });
 
     try {
-      final res = await http.get(Uri.parse(_apiUrl));
+      final res = await http.get(_apiUri);
       if (res.statusCode != 200) {
         throw Exception('HTTP ${res.statusCode}');
       }
@@ -122,17 +124,15 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     final dpwt = _pick<String>(j, ['dpwt', 'depth', '수심']) ?? '';
     final latStr = _pick<String>(j, ['lat']) ?? '0';
     final lonStr = _pick<String>(j, ['lon']) ?? '0';
-    final photo = _pick<String>(j, ['photo']);
+    final photo = _pick<String>(j, ['photo', 'image', 'image_url', 'img']);
     final target = _pick<String>(j, ['target']);
+
+    final imageUrl =
+    (photo == null || photo.trim().isEmpty) ? _fallbackImg : photo.trim();
 
     final lat = double.tryParse(latStr) ?? 0.0;
     final lon = double.tryParse(lonStr) ?? 0.0;
     final dist = _haversineKm(_originLat, _originLon, lat, lon);
-
-    final imageUrl = (photo == null || photo.isEmpty)
-        ? _fallbackImg
-        :
-    _fallbackImg;
 
     return FishingPoint(
       id: '${lat}_${lon}_${name.hashCode}',

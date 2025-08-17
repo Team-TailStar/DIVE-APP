@@ -4,44 +4,44 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.dive_app">
 
-    <!-- 권한 -->
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
-    <!-- Wear 가능 장치도 허용(필수 아님) -->
+    <!-- (옵션) 포어그라운드 서비스가 있다면 활성화 -->
+    <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> -->
+    <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" /> -->
+
+    <!-- Wear 지원(필수 아님) -->
     <uses-feature
         android:name="android.hardware.type.watch"
         android:required="false" />
 
-    <!-- Google Play Services Wearable 일부 시나리오에서 필요할 수 있음 -->
-    <uses-permission
-        android:name="com.google.android.permission.PROXY_AUTH"
-        tools:ignore="ProtectedPermissions" />
+    <!-- (네이버맵 등 스킴 조회용) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data />
+        </intent>
+    </queries>
 
     <application
         android:name="${applicationName}"
-        android:label="dive_app"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:label="dive_app">
 
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:enableOnBackInvokedCallback="true"
-            android:launchMode="singleTop"
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+            android:exported="true">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Flutter 스플래시/테마 메타데이터 (프로젝트에 기본 포함) -->
             <meta-data
                 android:name="io.flutter.embedding.android.SplashScreenDrawable"
                 android:resource="@drawable/launch_background" />
@@ -50,16 +50,17 @@
                 android:resource="@style/NormalTheme" />
         </activity>
 
+        <!-- ✅ Wear 데이터 레이어 리스너: 반드시 application의 직계 자식 + exported=true -->
+        <service
+            android:name=".wear.PhoneWearListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.BIND_LISTENER" />
+            </intent-filter>
+        </service>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-
-    <!-- 외부 앱 호출 쿼리(예: 네이버지도 nmap 스킴) -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="nmap" />
-        </intent>
-    </queries>
 </manifest>

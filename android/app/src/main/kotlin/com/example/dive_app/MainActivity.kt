@@ -24,21 +24,16 @@ class MainActivity : FlutterActivity() {
 
                     when (call.method) {
                         "sendWeather" -> {
-                            sendWeatherToWatch(this, args)
-                            result.success(null)
+                            sendWeatherToWatch(this, args); result.success(null)
                         }
                         "sendTide" -> {
-                            sendTideToWatch(this, args)
-                            result.success(null)
+                            sendTideToWatch(this, args); result.success(null)
                         }
                         "sendTemp" -> {
-                            sendTempToWatch(this, args)
-                            result.success(null)
+                            sendTempToWatch(this, args); result.success(null)
                         }
-
                         "sendFishingPoints" -> {
-                            sendFishingPointsToWatch(this, args)
-                            result.success(null)
+                            sendFishingPointsToWatch(this, args); result.success(null)
                         }
                         else -> result.notImplemented()
                     }
@@ -48,19 +43,16 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-
     private fun dataClient(context: Context): DataClient =
         Wearable.getDataClient(context)
 
     private fun putMap(path: String, payload: Map<String, Any?>): PutDataMapRequest {
         val req = PutDataMapRequest.create(path)
         val map = req.dataMap
-
         map.putLong("timestamp", System.currentTimeMillis())
-
         payload.forEach { (k, v) ->
             when (v) {
-                null -> { /* skip */ }
+                null -> {}
                 is String  -> map.putString(k, v)
                 is Int     -> map.putInt(k, v)
                 is Long    -> map.putLong(k, v)
@@ -81,41 +73,35 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun sendWeatherToWatch(context: Context, args: Map<String, Any?>) {
-
         val req = putMap("/weather", args)
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 
     private fun sendTideToWatch(context: Context, args: Map<String, Any?>) {
-
         val req = putMap("/tide", args)
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 
     private fun sendTempToWatch(context: Context, args: Map<String, Any?>) {
-
         val req = putMap("/temp", args)
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 
-
-
     private fun sendFishingPointsToWatch(context: Context, args: Map<String, Any?>) {
-        
-        @Suppress("UNCHECKED_CAST")
-        val points = (args["points"] as? List<Map<String, Any?>>) ?: emptyList()
+        // Dart에서 리스트를 바로 넘긴 경우도 처리
+        val raw = when (val v = args["points"] ?: args) {
+            is List<*> -> v
+            else -> emptyList<Any?>()
+        }
+        val points = raw.filterIsInstance<Map<String, Any?>>()
 
         val req = PutDataMapRequest.create("/fishing_points")
         val map = req.dataMap
-
-
         map.putLong("timestamp", System.currentTimeMillis())
-
 
         val dmaps = ArrayList<DataMap>(points.size)
         for (p in points) {
             val dm = DataMap()
-
             dm.putString("name",      (p["name"] ?: "").toString())
             dm.putString("point_nm",  (p["point_nm"] ?: p["name"] ?: "").toString())
             dm.putString("addr",      (p["addr"] ?: "").toString())
@@ -125,19 +111,15 @@ class MainActivity : FlutterActivity() {
             dm.putString("target",    (p["target"] ?: "").toString())
             dm.putString("point_dt",  (p["point_dt"] ?: "").toString())
             dm.putString("photo",     (p["photo"] ?: "").toString())
-
-
             dm.putDouble("lat", (p["lat"] as? Number)?.toDouble() ?: 0.0)
             dm.putDouble("lon", (p["lon"] as? Number)?.toDouble() ?: 0.0)
-            dm.putDouble("distance_km", (p["distance_km"] as? Number)?.toDouble()
-                ?: (p["distance_km"]?.toString()?.toDoubleOrNull() ?: 0.0)
+            dm.putDouble("distance_km",
+                (p["distance_km"] as? Number)?.toDouble()
+                    ?: (p["distance_km"]?.toString()?.toDoubleOrNull() ?: 0.0)
             )
-
             dmaps.add(dm)
         }
-
         map.putDataMapArrayList("points", dmaps)
-
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 }

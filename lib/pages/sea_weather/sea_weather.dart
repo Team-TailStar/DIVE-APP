@@ -4,6 +4,7 @@ import '../../routes.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../wear_bridge.dart';
+import '../../env.dart';
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -42,7 +43,6 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
             ),
             const SizedBox(height: 12),
 
-            // 탭
             Row(
               children: [
                 _SelectableChip(
@@ -82,13 +82,10 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
   String? error;
   List<SeaWave> waves = [];
 
-  // ✅ 워치로 중복 전송 방지용
   bool _sentToWatch = false;
 
-  static const String _apiBase = 'https://www.badatime.com/DIVE/forecast';
   static const double _lat = 35.1151;
   static const double _lon = 129.0415;
-  static const String _key = 'X2KN516OA5RAUL3GPCEFARGKHHKJQN';
 
   @override
   void initState() {
@@ -98,7 +95,9 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
 
   Future<void> _fetch() async {
     try {
-      final uri = Uri.parse('$_apiBase?lat=$_lat&lon=$_lon&key=$_key');
+      final uri = Uri.parse(
+        '${Env.API_BASE_URL}?lat=$_lat&lon=$_lon&key=${Env.BADA_SERVICE_KEY}',
+      );
       final res = await http.get(uri);
       if (res.statusCode != 200) {
         throw Exception('HTTP ${res.statusCode}');
@@ -125,7 +124,6 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
         loading = false;
       });
 
-      // ✅ 데이터 로딩 후 워치로 한 번만 전송
       _sendOnceToWatchIfPossible();
 
     } catch (e) {
@@ -324,7 +322,6 @@ class _TempSectionState extends State<_TempSection> {
 
   static const double _lat = 35.1151;
   static const double _lon = 129.0415;
-  static const String _key = 'X2KN516OA5RAUL3GPCEFARGKHHKJQN';
 
   @override
   void initState() {
@@ -334,7 +331,9 @@ class _TempSectionState extends State<_TempSection> {
 
   Future<void> _fetchTemp() async {
     try {
-      final uri = Uri.parse('https://www.badatime.com/DIVE/temp?lat=$_lat&lon=$_lon&key=$_key');
+      final uri = Uri.parse(
+        '${Env.API_BASE_URL}/temp?lat=$_lat&lon=$_lon&key=${Env.BADA_SERVICE_KEY}',
+      );
       final res = await http.get(uri);
       if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
       final body = json.decode(utf8.decode(res.bodyBytes));
@@ -375,7 +374,6 @@ class _TempSectionState extends State<_TempSection> {
 
       _sentToWatch = true;
     } catch (_) {
-      // 전송 실패는 조용히 무시 (UI 영향 X)
     }
   }
 
@@ -501,7 +499,7 @@ class _TempSectionState extends State<_TempSection> {
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: _CompareRow(
                       place: s.name,
-                      trendUp: true, // 추세 미제공: 임시 고정
+                      trendUp: true,
                       temp: '${s.tempC.toStringAsFixed(1)}°C',
                       dist: s.distanceKm == null ? '-' : '${s.distanceKm!.toStringAsFixed(1)}㎞',
                     ),
@@ -531,7 +529,6 @@ class _TempComparePageState extends State<TempComparePage> {
 
   static const double _lat = 35.1151;
   static const double _lon = 129.0415;
-  static const String _key = 'X2KN516OA5RAUL3GPCEFARGKHHKJQN';
 
   @override
   void initState() {
@@ -541,7 +538,9 @@ class _TempComparePageState extends State<TempComparePage> {
 
   Future<void> _fetch() async {
     try {
-      final uri = Uri.parse('https://www.badatime.com/DIVE/temp?lat=$_lat&lon=$_lon&key=$_key');
+      final uri = Uri.parse(
+        '${Env.API_BASE_URL}/temp?lat=$_lat&lon=$_lon&key=${Env.BADA_SERVICE_KEY}',
+      );
       final res = await http.get(uri);
       if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
       final body = json.decode(utf8.decode(res.bodyBytes));
@@ -1054,7 +1053,6 @@ class SeaWave {
   }
 
   factory SeaWave.fromJson(Map<String, dynamic> j) {
-    // 시간
     String? t = (j['ymdt'] ?? j['time'] ?? j['date'])?.toString();
     late DateTime dt;
     DateTime _fromYmd(String s) {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../app_bottom_nav.dart';
-// 필요하면 라우트 상수 쓰도록 경로 맞춰 임포트
+
 
 class WatchConnectPage extends StatefulWidget {
   const WatchConnectPage({super.key});

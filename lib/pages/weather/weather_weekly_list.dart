@@ -1,4 +1,4 @@
-// lib/pages/weather/weather_weekly_list.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'weather_models.dart';

@@ -10,7 +10,6 @@ import 'air_quality_card.dart';
 import 'air_quality_service.dart';
 import 'sky_icon_mapper.dart';
 import 'weather_weekly_list.dart';
-import 'package:intl/intl.dart';
 
 class WeatherPage extends StatefulWidget {
   final double lat;
