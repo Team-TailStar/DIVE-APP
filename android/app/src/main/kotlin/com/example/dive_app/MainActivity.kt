@@ -1,5 +1,6 @@
 package com.example.dive_app
 
+import android.content.Context
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -34,6 +35,7 @@ class MainActivity : FlutterActivity() {
                             sendTempToWatch(this, args)
                             result.success(null)
                         }
+
                         "sendFishingPoints" -> {
                             sendFishingPointsToWatch(this, args)
                             result.success(null)
@@ -46,6 +48,7 @@ class MainActivity : FlutterActivity() {
             }
     }
 
+
     private fun dataClient(context: Context): DataClient =
         Wearable.getDataClient(context)
 
@@ -57,7 +60,7 @@ class MainActivity : FlutterActivity() {
 
         payload.forEach { (k, v) ->
             when (v) {
-                null -> {  }
+                null -> { /* skip */ }
                 is String  -> map.putString(k, v)
                 is Int     -> map.putInt(k, v)
                 is Long    -> map.putLong(k, v)
@@ -78,28 +81,36 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun sendWeatherToWatch(context: Context, args: Map<String, Any?>) {
+
         val req = putMap("/weather", args)
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 
     private fun sendTideToWatch(context: Context, args: Map<String, Any?>) {
+
         val req = putMap("/tide", args)
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 
     private fun sendTempToWatch(context: Context, args: Map<String, Any?>) {
+
         val req = putMap("/temp", args)
         dataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
     }
 
+
+
     private fun sendFishingPointsToWatch(context: Context, args: Map<String, Any?>) {
+        
         @Suppress("UNCHECKED_CAST")
         val points = (args["points"] as? List<Map<String, Any?>>) ?: emptyList()
 
         val req = PutDataMapRequest.create("/fishing_points")
         val map = req.dataMap
 
+
         map.putLong("timestamp", System.currentTimeMillis())
+
 
         val dmaps = ArrayList<DataMap>(points.size)
         for (p in points) {
@@ -114,6 +125,7 @@ class MainActivity : FlutterActivity() {
             dm.putString("target",    (p["target"] ?: "").toString())
             dm.putString("point_dt",  (p["point_dt"] ?: "").toString())
             dm.putString("photo",     (p["photo"] ?: "").toString())
+
 
             dm.putDouble("lat", (p["lat"] as? Number)?.toDouble() ?: 0.0)
             dm.putDouble("lon", (p["lon"] as? Number)?.toDouble() ?: 0.0)

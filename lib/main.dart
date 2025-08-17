@@ -1,11 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart'; 
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'routes.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('ko_KR', null); // ← 로케일 데이터 로드
+
+  await FlutterNaverMap().init(
+      clientId: 'vwykpurwuk',
+      onAuthFailed: (ex) {
+        switch (ex) {
+          case NQuotaExceededException(:final message):
+            print("사용량 초과 (message: $message)");
+            break;
+          case NUnauthorizedClientException() ||
+          NClientUnspecifiedException() ||
+          NAnotherAuthFailedException():
+            print("인증 실패: $ex");
+            break;
+        }
+      });
+
   runApp(const SeaWeatherApp());
 }
 
@@ -36,19 +52,6 @@ class SeaWeatherApp extends StatelessWidget {
           ),
         ),
       ),
-
-      // 로컬라이제이션 설정
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('ko', 'KR'),
-        Locale('en', 'US'),
-      ],
-      locale: const Locale('ko', 'KR'),
-
       initialRoute: Routes.home,
       onGenerateRoute: RouteGenerator.onGenerateRoute,
     );
