@@ -1,4 +1,6 @@
+// lib/pages/weather/air_quality_card.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'air_quality_service.dart';
 
 class AirQualityCard extends StatelessWidget {
@@ -6,15 +8,31 @@ class AirQualityCard extends StatelessWidget {
   const AirQualityCard({super.key, required this.data});
 
   Color _gradeColor(String grade) {
-    if (grade.contains('매우')) return const Color(0xFFFF6B6B); // 매우나쁨: 레드
-    if (grade.contains('나쁨')) return const Color(0xFFFFA94D); // 나쁨: 오렌지
-    if (grade.contains('보통')) return const Color(0xFF6BCB77); // 보통: 그린
-    if (grade.contains('좋음')) return const Color(0xFF4D96FF); // 좋음: 블루
+    if (grade.contains('매우')) return const Color(0xFFFF6B6B);
+    if (grade.contains('나쁨')) return const Color(0xFFFFA94D);
+    if (grade.contains('보통')) return const Color(0xFF6BCB77);
+    if (grade.contains('좋음')) return const Color(0xFF4D96FF);
     return Colors.grey;
   }
 
+  String _metaLine(AirQualitySummary d) {
+    final b = StringBuffer();
+    b.write(d.regionLabel); // 서울, 경기남부 등
+    // 발표시각
+    if (d.announcedAt != null) {
+      b.write(' · ');
+      b.write(DateFormat('M월 d일 H시 발표', 'ko_KR').format(d.announcedAt!));
+    }
+    // 적용일
+    if (d.appliesOn != null) {
+      b.write(' · ');
+      b.write(DateFormat('M월 d일 적용', 'ko_KR').format(d.appliesOn!));
+    }
+    return b.toString();
+  }
+
   Widget _tile(String title, String sub, String grade) {
-    final gc = _gradeColor(grade); // ← 여기서 등급별 색 계산
+    final gc = _gradeColor(grade);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -67,16 +85,22 @@ class AirQualityCard extends StatelessWidget {
               Icon(Icons.eco_rounded, size: 18, color: cs.primary),
             ],
           ),
+          const SizedBox(height: 4),
+          // 메타정보 라인(지역 · 발표 · 적용)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _metaLine(data),
+              style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600),
+            ),
+          ),
           const SizedBox(height: 12),
           GridView(
             padding: EdgeInsets.zero,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1.55, // ← 1.9 → 1.55 로 낮춰 타일 높이 ↑
+              crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.55,
             ),
             children: [
               _tile('미세먼지', 'PM10', data.pm10),

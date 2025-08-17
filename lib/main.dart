@@ -3,9 +3,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart'; 
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'routes.dart';
+import 'env.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ko_KR', null);
+  await Env.ensureLoaded();
+
 
   await FlutterNaverMap().init(
       clientId: 'vwykpurwuk',

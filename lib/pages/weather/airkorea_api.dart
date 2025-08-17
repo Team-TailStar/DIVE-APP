@@ -1,28 +1,28 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-
-/// 공공데이터포털 디코딩(serviceKey) 사용 권장
-const String _serviceKey = String.fromEnvironment('AIRKOREA_SERVICE_KEY', defaultValue: '');
-const bool _useMock = false; // ← 임시로 가짜 데이터 쓰고 싶으면 true
+import '../../env.dart';
 
 class AirKoreaApi {
   static const _host = 'apis.data.go.kr';
   static const _path = '/B552584/ArpltnInforInqireSvc/getMinuDustFrcstDspth';
 
-  /// searchDate: 통보서 발송일(YYYY-MM-DD). null이면 오늘.
-  /// informCode: PM10 | PM25 | O3
   static Future<List<DustForecast>> fetch({
     DateTime? searchDate,
     String informCode = 'PM10',
     int numOfRows = 10,
     int pageNo = 1,
   }) async {
-    if (_useMock) return _mock();
+    // await Env.ensureLoaded();
+    final serviceKey = Env.AIRKOREA_SERVICE_KEY;
+    if (serviceKey.isEmpty) {
+      throw Exception('AIRKOREA_SERVICE_KEY 비어 있음 (env.json 확인)');
+    }
 
+    // 지금 날짜(로컬) 기준으로 호출
     final dateStr = DateFormat('yyyy-MM-dd').format(searchDate ?? DateTime.now());
     final query = {
-      'serviceKey': _serviceKey,
+      'serviceKey': serviceKey,
       'returnType': 'json',
       'numOfRows': '$numOfRows',
       'pageNo': '$pageNo',
@@ -44,7 +44,7 @@ class AirKoreaApi {
     return items.map((e) => DustForecast.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  /// 결과가 비어오면 하루 전/이틀 전도 재시도하고 싶을 때
+  /// 결과가 비어오면 하루 전/이틀 전까지 재시도
   static Future<List<DustForecast>> fetchWithFallback({
     String informCode = 'PM10',
   }) async {
@@ -56,37 +56,63 @@ class AirKoreaApi {
     return [];
   }
 
-  static List<DustForecast> _mock() {
-    return [
-      DustForecast(
-        dataTime: '2025-08-16 11시 발표',
-        informCode: 'PM10',
-        informOverall: '중서부 중심 국외 미세먼지 유입과 대기정체로 농도 높음.',
-        informCause: '국외 영향 + 대기 정체',
-        informGradeByRegion: {
-          '서울': '나쁨',
-          '인천': '나쁨',
-          '경기남부': '보통',
-          '경기북부': '나쁨',
-          '부산': '보통',
-        },
-        actionKnack: '기침/호흡기 질환자는 외출 시 마스크 착용 권고',
-        imageUrls: const [],
-        informData: '2025-08-17',
-      ),
-    ];
+  /// 지금 시간 기준으로 가장 최근(미래 발표분 제외) 예보 한 건 선택
+  static Future<DustForecast?> fetchLatestForNow({
+    String informCode = 'PM10',
+  }) async {
+    final now = DateTime.now();
+    final items = await fetchWithFallback(informCode: informCode);
+    if (items.isEmpty) return null;
+
+    // dataTime 파싱해서 now 이전/동일인 것만 필터
+    final parsed = <({DustForecast item, DateTime when})>[];
+    for (final it in items) {
+      final dt = _parseDataTime(it.dataTime);
+      if (dt != null) {
+        parsed.add((item: it, when: dt));
+      }
+    }
+    if (parsed.isEmpty) {
+      // 파싱 실패 시 그냥 최신 정렬 반환
+      return items.first;
+    }
+
+    // now 이전/동일 발표 중 최댓값 우선
+    final pastOrNow = parsed.where((e) => !e.when.isAfter(now)).toList();
+    if (pastOrNow.isNotEmpty) {
+      pastOrNow.sort((a, b) => b.when.compareTo(a.when));
+      return pastOrNow.first.item;
+    }
+
+    // 전부 미래면(드물지만) 가장 가까운 미래 발표로 대체
+    parsed.sort((a, b) => a.when.compareTo(b.when));
+    return parsed.first.item;
   }
+
+  /// "2025-08-16 11시 발표" → DateTime(2025,8,16,11)
+  static DateTime? _parseDataTime(String? s) {
+    if (s == null) return null;
+    final re = RegExp(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2})');
+    final m = re.firstMatch(s);
+    if (m == null) return null;
+    final y = int.parse(m.group(1)!);
+    final mo = int.parse(m.group(2)!);
+    final d = int.parse(m.group(3)!);
+    final h = int.parse(m.group(4)!);
+    return DateTime(y, mo, d, h);
+  }
+
 }
 
 class DustForecast {
-  final String dataTime;
-  final String informCode;
-  final String informOverall;
-  final String informCause;
-  final Map<String, String> informGradeByRegion; // 지역 -> 등급
-  final String? actionKnack;
-  final List<String> imageUrls; // imageUrl1~9
-  final String informData;
+  final String dataTime;                 // "YYYY-MM-DD HH시 발표"
+  final String informCode;               // "PM10" | "PM25" | "O3"
+  final String informOverall;            // 총괄
+  final String informCause;              // 원인
+  final Map<String, String> informGradeByRegion; // 지역별 등급
+  final String? actionKnack;             // 행동 요령
+  final List<String> imageUrls;          // imageUrl1~9
+  final String informData;               // 적용일(YYYY-MM-DD)
 
   DustForecast({
     required this.dataTime,
@@ -100,7 +126,6 @@ class DustForecast {
   });
 
   factory DustForecast.fromJson(Map<String, dynamic> j) {
-    // "서울 : 나쁨, 경기남부 : 보통, ..." -> Map 파싱
     Map<String, String> parseGrades(String? s) {
       final map = <String, String>{};
       if (s == null || s.trim().isEmpty) return map;
