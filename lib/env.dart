@@ -28,7 +28,7 @@ class Env {
   }
 
   static Future<void> _doLoad() async {
-    final raw = await rootBundle.loadString('assets/env.json');
+    final raw = await rootBundle.loadString('lib/assets/env.json');
     if (raw.trim().isEmpty) {
       throw StateError('assets/env.json is empty');
     }
