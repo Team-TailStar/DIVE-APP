@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart'; // ← 추가
 import 'routes.dart';
+import 'env.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('ko_KR', null); // ← 로케일 데이터 로드
+  await initializeDateFormatting('ko_KR', null);
+  await Env.ensureLoaded();
   runApp(const SeaWeatherApp());
 }
 

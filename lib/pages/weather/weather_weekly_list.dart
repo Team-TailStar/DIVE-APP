@@ -7,10 +7,11 @@ import 'air_quality_service.dart'; // AirQualitySummary
 
 class WeatherWeeklyList extends StatelessWidget {
   final List<Day7Item> all;
-  final AirQualitySummary? air; // ← 주간 카드에 붙일 대기질 요약(옵션)
-  final DateTime startDate;           // 주간 시작일(오늘 00:00 or 다음 주 00:00)
-  final String title;                 // 헤더 타이틀 (This Week / Next Week)
-  final DateTime? highlightDate;      // 강조할 날짜(이번 주: 오늘 / 다음 주: 시작일)
+  final AirQualitySummary? air;     // 주간 카드에 붙일 대기질 요약(옵션)
+  final DateTime startDate;         // 주간 시작일(오늘 00:00 or 다음 주 00:00)
+  final String title;               // 헤더 타이틀 (This Week / Next Week)
+  final DateTime? highlightDate;    // 강조 날짜(이번 주: 오늘 / 다음 주: 시작일)
+
   WeatherWeeklyList({
     super.key,
     required this.all,
@@ -25,6 +26,10 @@ class WeatherWeeklyList extends StatelessWidget {
     final days = _aggregate(all, startDate);
     final headerDate = highlightDate ?? startDate;
 
+    if (days.isEmpty) {
+      return _emptyBox('예보 정보가 없습니다.');
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -34,7 +39,7 @@ class WeatherWeeklyList extends StatelessWidget {
           child: Row(
             children: [
               Text(title,
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
               const Spacer(),
               Text(
                 DateFormat('M월 d일 (E)', 'ko_KR').format(headerDate),
@@ -45,18 +50,34 @@ class WeatherWeeklyList extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         ...days.map((d) {
-          final shouldHighlight =  highlightDate != null && _sameDate(d.date, highlightDate!);
-          return _DayCard(d: d, air: air, highlight: shouldHighlight); // CHANGE
-        }).toList(),
+          final shouldHighlight =
+              highlightDate != null && _sameDate(d.date, highlightDate!);
+          return _DayCard(d: d, air: air, highlight: shouldHighlight);
+        }),
       ],
     );
   }
+
+  Widget _emptyBox(String msg) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.28),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(msg, style: const TextStyle(color: Colors.white)),
+    );
+  }
+
   bool _sameDate(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
+
   List<_DailyAgg> _aggregate(List<Day7Item> src, DateTime rangeStart) {
     final start0 = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
     final end = start0.add(const Duration(days: 7));
 
+    // 날짜별 그룹핑
     final map = <String, List<Day7Item>>{};
     for (final it in src) {
       final t = it.time;
@@ -65,45 +86,41 @@ class WeatherWeeklyList extends StatelessWidget {
       (map[key] ??= []).add(it);
     }
 
-
     final result = <_DailyAgg>[];
     final keys = map.keys.toList()..sort();
+
     for (final k in keys.take(7)) {
       final list = map[k]!;
-      double minT = double.infinity, maxT = -double.infinity, wind = 0, hum = 0;
+      if (list.isEmpty) continue;
+
+      double minT = double.infinity;
+      double maxT = -double.infinity;
+      double windSum = 0.0;
+      int humSum = 0;
       int rainProb = 0;
       final skyCount = <String, int>{};
-      String sky = '맑음', skyCode = '1';
 
       for (final e in list) {
+        // 온도 min/max
         final t = e.tempC;
         if (t < minT) minT = t;
         if (t > maxT) maxT = t;
-        wind += e.windSpd ?? 0;
-        hum += e.humidity ?? 0;
+
+        windSum += e.windSpd;
+        humSum += e.humidity;
 
         // 가장 큰 강수확률 채택
-        final rp = e.rainProb ?? 0;
-        if (rp > rainProb) rainProb = rp;
+        if (e.rainProb > rainProb) rainProb = e.rainProb;
 
-        skyCount[e.sky] = (skyCount[e.sky] ?? 0) + 1;
-      }for (final e in list) {
-        final t = e.tempC;
-        if (t < minT) minT = t;
-        if (t > maxT) maxT = t;
-        wind += e.windSpd ?? 0;
-        hum += e.humidity ?? 0;
-
-        // 가장 큰 강수확률 채택
-        final rp = e.rainProb ?? 0;
-        if (rp > rainProb) rainProb = rp;
-
+        // 가장 많이 출현한 sky를 대표로
         skyCount[e.sky] = (skyCount[e.sky] ?? 0) + 1;
       }
+
+      String sky = '맑음';
+      String skyCode = list.first.skyCode;
       final top = skyCount.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       if (top.isNotEmpty) sky = top.first.key;
-      skyCode = list.first.skyCode;
 
       final d = DateFormat('yyyy-MM-dd').parse(k);
       result.add(_DailyAgg(
@@ -113,10 +130,11 @@ class WeatherWeeklyList extends StatelessWidget {
         sky: sky,
         skyCode: skyCode,
         rainProb: rainProb,
-        wind: wind / list.length,
-        humidity: (hum / list.length).round(),
+        wind: windSum / list.length,
+        humidity: (humSum / list.length).round(),
       ));
     }
+
     return result;
   }
 }
@@ -169,7 +187,6 @@ class _DayCard extends StatelessWidget {
         border: Border.all(color: border, width: 1.2),
         boxShadow: shadow,
       ),
-
       child: Column(
         children: [
           // 상단: 요일/날짜 + 최고/최저
@@ -179,8 +196,7 @@ class _DayCard extends StatelessWidget {
                 child: Text(
                   '${DateFormat('EEEE', 'en').format(d.date)}\n'
                       '${DateFormat('MMM d', 'en').format(d.date)}',
-                  style:
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                 ),
               ),
               Column(
@@ -188,9 +204,7 @@ class _DayCard extends StatelessWidget {
                 children: [
                   Text('${d.maxT.round()}°',
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800)),
+                          color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
                   Text('${d.minT.round()}°',
                       style: const TextStyle(color: Colors.white70, fontSize: 12)),
@@ -209,19 +223,14 @@ class _DayCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(d.sky,
-                        style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text(d.sky, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                     Text('${d.rainProb}% chance of rain',
-                        style:
-                        const TextStyle(color: Colors.white70, fontSize: 12)),
+                        style: const TextStyle(color: Colors.white70, fontSize: 12)),
                   ],
                 ),
               ),
-              // 우측 “정보없음” 뱃지 (상세 칩은 아래 Wrap에서 노출)
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -229,9 +238,7 @@ class _DayCard extends StatelessWidget {
                 child: Text(
                   air == null ? '정보없음' : '대기질',
                   style: const TextStyle(
-                      color: Color(0xFF4D96FF),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12),
+                      color: Color(0xFF4D96FF), fontWeight: FontWeight.w800, fontSize: 12),
                 ),
               ),
             ],
@@ -239,7 +246,6 @@ class _DayCard extends StatelessWidget {
 
           const SizedBox(height: 10),
 
-          // 대기질 칩들 (요약 없으면 생략)
           if (air != null) _airChipsRow(air!),
 
           const SizedBox(height: 8),
@@ -272,8 +278,7 @@ class _DayCard extends StatelessWidget {
     );
   }
 
-  // 대기질 칩 Row (미세먼지/초미세먼지)
-  // _airChipsRow 교체
+  // 대기질 칩 Row
   Widget _airChipsRow(AirQualitySummary a) {
     Widget pair(String name, String? grade) {
       final g = grade ?? '정보없음';
@@ -287,8 +292,8 @@ class _DayCard extends StatelessWidget {
           const SizedBox(width: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(10)),
+            decoration:
+            BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
             child: Text(g,
                 style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 12)),
           ),

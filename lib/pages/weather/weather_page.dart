@@ -10,6 +10,7 @@ import 'air_quality_card.dart';
 import 'air_quality_service.dart';
 import 'sky_icon_mapper.dart';
 import 'weather_weekly_list.dart';
+import 'package:intl/intl.dart';
 
 class WeatherPage extends StatefulWidget {
   final double lat;
@@ -19,9 +20,14 @@ class WeatherPage extends StatefulWidget {
   @override
   State<WeatherPage> createState() => _WeatherPageState();
 }
+
 class _WeatherPageState extends State<WeatherPage> {
   late Future<NowResponse> _nowF;
   late Future<List<Day7Item>> _day7F;
+
+  // 공기질은 한 번만 받아서 공유
+  late Future<AirQualitySummary> _airF;
+
   WeatherTab _tab = WeatherTab.today;
 
   @override
@@ -29,6 +35,11 @@ class _WeatherPageState extends State<WeatherPage> {
     super.initState();
     _nowF = WeatherApi.fetchNow(widget.lat, widget.lon);
     _day7F = WeatherApi.fetchDay7(widget.lat, widget.lon);
+
+    // now.city를 폴백으로 사용해 공기질 요청. (위치 권한 지연 방지)
+    _airF = _nowF.then(
+          (now) => AirQualityService.fetchSummaryByLocation(cityFallback: now.city),
+    );
   }
 
   @override
@@ -62,6 +73,7 @@ class _WeatherPageState extends State<WeatherPage> {
                     }
                     final now = snap.data!;
                     final current = now.items.first;
+
                     return Expanded(
                       child: SingleChildScrollView(
                         child: Column(
@@ -69,13 +81,28 @@ class _WeatherPageState extends State<WeatherPage> {
                           children: [
                             _location(now.city ?? '위치 정보 없음'),
                             const SizedBox(height: 6),
-                            _bigTemp(current.tempC, current.sky, current.skyCode),
+
+                            // 온도 + 하단 미세먼지 한 줄 (같은 _airF 사용)
+                            FutureBuilder<AirQualitySummary>(
+                              future: _airF,
+                              builder: (context, aq) {
+                                return _bigTemp(
+                                  current.tempC,
+                                  current.sky,
+                                  current.skyCode,
+                                  aq.data, // 있으면 '미세먼지 · 초미세먼지' 한 줄 표시
+                                );
+                              },
+                            ),
+
                             const SizedBox(height: 12),
                             WeatherMetricsCard(current: current),
+
                             if (_tab == WeatherTab.today) ...[
                               const SizedBox(height: 14),
+                              // 대기질 정보 카드 (같은 _airF 재사용)
                               FutureBuilder<AirQualitySummary>(
-                                future: AirQualityService.fetchSummary(city: now.city),
+                                future: _airF,
                                 builder: (context, aq) {
                                   if (aq.connectionState != ConnectionState.done) {
                                     return Container(
@@ -89,10 +116,22 @@ class _WeatherPageState extends State<WeatherPage> {
                                       ),
                                     );
                                   }
-                                  if (!aq.hasData) return const SizedBox.shrink();
+
+                                  final data = aq.data ??
+                                      AirQualitySummary(
+                                        pm10: '정보없음',
+                                        pm25: '정보없음',
+                                        o3: '정보없음',
+                                        message: '대기질 정보를 불러오지 못했습니다.',
+                                        regionLabel: now.city ?? '서울',
+                                        announcedAt: null,
+                                        appliesOn: null,
+                                        no2: null,
+                                      );
+
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 14),
-                                    child: AirQualityCard(data: aq.data!),
+                                    child: AirQualityCard(data: data),
                                   );
                                 },
                               ),
@@ -120,8 +159,9 @@ class _WeatherPageState extends State<WeatherPage> {
                                 final today0 = DateTime(nowDt.year, nowDt.month, nowDt.day);
                                 final rangeStart = today0.subtract(const Duration(days: 3));
 
+                                // 주간 리스트에서도 동일 _airF 사용
                                 return FutureBuilder<AirQualitySummary>(
-                                  future: AirQualityService.fetchSummary(city: now.city),
+                                  future: _airF,
                                   builder: (context, aq) {
                                     return WeatherWeeklyList(
                                       all: list,
@@ -161,7 +201,8 @@ class _WeatherPageState extends State<WeatherPage> {
     );
   }
 
-  Widget _bigTemp(double tempC, String sky, String skyCode) {
+  // 공기질 한 줄 표시를 위해 AirQualitySummary? 추가
+  Widget _bigTemp(double tempC, String sky, String skyCode, AirQualitySummary? air) {
     final t = tempC.round();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -186,18 +227,28 @@ class _WeatherPageState extends State<WeatherPage> {
             Icon(skyCodeToIcon(skyCode), size: 28, color: Colors.white),
           ],
         ),
+        if (air != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            '미세먼지 ${air.pm10} · 초미세먼지 ${air.pm25}',
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+        ],
       ],
     );
   }
 
+  Widget _emptyState(String msg) => Expanded(
+    child: Center(child: Text(msg, style: const TextStyle(color: Colors.white, fontSize: 16))),
+  );
 
-  Widget _emptyState(String msg) => Expanded(child: Center(child: Text(msg, style: const TextStyle(color: Colors.white, fontSize: 16))));
   Widget _emptyBox(String msg) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: Colors.white.withOpacity(0.28), borderRadius: BorderRadius.circular(16)),
     child: Text(msg, style: const TextStyle(color: Colors.white)),
   );
+
   Widget _skeleton() => Container(
     height: 110,
     decoration: BoxDecoration(color: Colors.white.withOpacity(0.28), borderRadius: BorderRadius.circular(16)),
