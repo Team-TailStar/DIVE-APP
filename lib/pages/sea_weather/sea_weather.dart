@@ -136,8 +136,6 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
     }
   }
 
-  /// ✅ 화면에 표시하는 로직과 동일한 기준으로
-  /// 평균 파고/대표 파향/관측시각을 만들어 워치로 1회 전송
   Future<void> _sendOnceToWatchIfPossible() async {
     if (_sentToWatch || waves.isEmpty) return;
 
