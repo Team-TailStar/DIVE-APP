@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-// 페이지들 임포트
-import 'pages/sea_weather/sea_weather.dart';               // SeaWeatherPage, TempComparePage 포함
-import 'pages/fishing_point/fishing_point_main.dart';      // 새로 만들 파일
-import 'pages/fishing_point/fishing_point_detail.dart';    // 새로 만들 파일
+import 'pages/sea_weather/sea_weather.dart';
+import 'pages/fishing_point/fishing_point_main.dart';
+import 'pages/fishing_point/fishing_point_detail.dart';
 import 'pages/weather/weather_page.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -27,11 +26,9 @@ class RouteGenerator {
       case Routes.tempCompare:
         return _page(const TempComparePage());
 
-    // 낚시 포인트 메인
       case Routes.fishingPointMain:
         return _page(const FishingPointMainPage());
 
-    // 낚시 포인트 상세 (arguments 사용)
       case Routes.fishingPointDetail:
         return _page(FishingPointDetailPage.from(settings.arguments));
 
@@ -88,7 +85,6 @@ class _WeatherAutoPage extends StatelessWidget {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (snap.hasError || !snap.hasData) {
-          // 실패 시 임시 좌표(서울시청)로 진입
           return const WeatherPage(lat: 37.5665, lon: 126.9780);
         }
         final p = snap.data!;
