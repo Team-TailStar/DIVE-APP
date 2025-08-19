@@ -1439,8 +1439,16 @@ class SeaStationTemp {
     final obsTime =
         DateTime.tryParse(t.replaceFirst(' ', 'T')) ?? DateTime.now();
 
-    final rawTemp =
-    _pick(j, ['sst', 'seatemperature', 'watertemp', 'temp_c', 'temp']);
+    final rawTemp = _pick(j, [
+      'obs_wt',          // BadaTime 응답의 수온 키
+      'sst',
+      'sea_temperature',
+      'seatemperature',
+      'water_temp',
+      'watertemp',
+      'temp_c',
+      'temp',
+    ]);
     final tempC = _toDouble(rawTemp);
 
     final dt = (j['obs_dt'] ?? j['distance'] ?? '').toString();
