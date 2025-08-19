@@ -37,9 +37,12 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         val data = String(messageEvent.data)
 
         when (path) {
+            "/request_air_quality" -> {
+                Log.d("PhoneMsg", "📩 워치에서 미세먼지 요청 수신")
+            }
             "/request_location" -> {
                 Log.d("PhoneMsg", "📩 워치에서 현재 위치 요청 수신")
-                requestCurrentLocation()
+                responseCurrentLocation()
             }
             "/request_weather" -> {
                 Log.d("PhoneMsg", "📩 워치에서 날씨 요청 수신")
@@ -53,7 +56,7 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                     put("winddir", "NE")
                     put("waveHt", "0.5m")
                     put("waveDir", "동쪽")
-                    put("obs_wt", "24.5")
+                    put("obsWt", "24.5")
                 }
                 replyToWatch("/response_weather", weatherJson.toString())
             }
@@ -63,7 +66,7 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
                 val tidesArray = listOf(
                     JSONObject().apply {
-                        put("pThisDate", "2025-08-19(월)")
+                        put("pThisDate", "2025-8-19-화-7-3")
                         put("pName", "부산")
                         put("pMul", "4물")
                         put("pSun", "05:51/19:00")
@@ -74,7 +77,7 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                         put("jowi4", "")
                     },
                     JSONObject().apply {
-                        put("pThisDate", "2025-08-18(월)")
+                        put("pThisDate", "2025-8-20-수-6-3")
                         put("pName", "부산")
                         put("pMul", "4물")
                         put("pSun", "05:51/19:00")
@@ -152,9 +155,8 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
             }
     }
 
-    // 📍 위치 요청 함수 (Activity 안으로 이동)
     @SuppressLint("MissingPermission")
-    private fun requestCurrentLocation() {
+    private fun responseCurrentLocation() {
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         fusedLocationClient.lastLocation
