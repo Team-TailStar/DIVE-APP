@@ -9,7 +9,6 @@ import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.location.LocationServices
 import org.json.JSONObject
-
 /**
  * FlutterActivity + WearOS 메시지 수신 로그
  * - 워치에서 날씨/조석/포인트 요청을 보냈을 때
@@ -39,6 +38,17 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         when (path) {
             "/request_air_quality" -> {
                 Log.d("PhoneMsg", "📩 워치에서 미세먼지 요청 수신")
+                    val airQualityJson = JSONObject().apply {
+                        put("no2Value", "0.009")
+                        put("o3Value", "0.023")
+                        put("pm10Value", "15")
+                        put("pm25Value", "7")
+                        put("o3Grade", "1")
+                        put("no2Grade", "2")
+                        put("pm10Grade", "3")
+                        put("pm25Grade", "4")
+                    }
+                replyToWatch("/response_air_quality", airQualityJson.toString())
             }
             "/request_location" -> {
                 Log.d("PhoneMsg", "📩 워치에서 현재 위치 요청 수신")
@@ -46,7 +56,6 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
             }
             "/request_weather" -> {
                 Log.d("PhoneMsg", "📩 워치에서 날씨 요청 수신")
-                // ✅ 실제 API에서 가져온 데이터라고 가정
                 val weatherJson = JSONObject().apply {
                     put("sky", "맑음")
                     put("temp", "27")
@@ -63,7 +72,6 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
             "/request_tide" -> {
                 Log.d("PhoneMsg", "📩 워치에서 조석 요청 수신")
-
                 val tidesArray = listOf(
                     JSONObject().apply {
                         put("pThisDate", "2025-8-19-화-7-3")
