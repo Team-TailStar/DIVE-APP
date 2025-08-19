@@ -139,6 +139,16 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
             "/response_heart_rate" -> {
                 Log.d("PhoneMsg", "📩 워치에서 심박수 수신")
+                try {
+                    val json = JSONObject(data)
+                    val bpm = json.getInt("heart_rate")
+                    Log.d("PhoneMsg", "❤️ 워치에서 심박수 수신: $bpm bpm")
+                    // TODO: 여기에 UI 업데이트, 실시간으로 요청 보내는 코드 필요함
+                    // 예시 : UI 페이지에 replyToWatch("/request_heart_rate", "request")
+                    // 이렇게 보내고 저장한 뒤에 UI에 띄우기
+                } catch (e: NumberFormatException) {
+                    Log.e("PhoneMsg", "⚠️ 심박수 데이터 파싱 실패: $data")
+                }
             }
 
             else -> {
