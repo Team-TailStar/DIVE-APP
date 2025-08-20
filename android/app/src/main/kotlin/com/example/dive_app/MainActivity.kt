@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import com.example.dive_app.api.AirKoreaApi
 import com.example.dive_app.api.WeatherApi
 import com.example.dive_app.api.TideApi
+import com.example.dive_app.api.FishingPointApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -106,36 +107,18 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
             }
 
             "/request_point" -> {
-                Log.d("PhoneMsg", "📩 워치에서 포인트 요청 수신")
-                val pointsArray = listOf(
-                    JSONObject().apply {
-                        put("name", "부산광역시")
-                        put("point_nm", "광안리 해수욕장")
-                        put("dpwt", "5m")
-                        put("material", "모래")
-                        put("tide_time", "4물")
-                        put("target", "숭어, 도다리")
-                        put("lat", 35.1532)
-                        put("lon", 129.1186)
-                        put("point_dt", "5 km")
-                    },
-                    JSONObject().apply {
-                        put("name", "부산광역시")
-                        put("point_nm", "다대포")
-                        put("dpwt", "7m")
-                        put("material", "자갈")
-                        put("tide_time", "5물")
-                        put("target", "우럭, 노래미")
-                        put("lat", 35.0450)
-                        put("lon", 128.9631)
-                        put("point_dt", "5 km")
-                    }
-                )
+                Log.d("PhoneMsg", "📩 워치에서 낚시포인트 요청 수신")
 
-                val pointsJson = JSONObject().apply {
-                    put("points", pointsArray)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val pointJson = FishingPointApi.fetchFishingPointByLocation(this@MainActivity)
+
+                    if (pointJson != null) {
+                        replyToWatch("/response_point", pointJson.toString())
+                        Log.d("PhoneMsg", "🌊 낚시포인트 응답 전송: $pointJson")
+                    } else {
+                        Log.e("PhoneMsg", "❌ 낚시포인트 데이터 조회 실패")
+                    }
                 }
-                replyToWatch("/response_point", pointsJson.toString())
             }
 
             "/response_heart_rate" -> {
