@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
-
 import '../../app_bottom_nav.dart';
 import 'weather_api.dart';
 import 'weather_tabs.dart';
