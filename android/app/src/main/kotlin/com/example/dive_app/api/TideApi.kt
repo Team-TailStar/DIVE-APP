@@ -28,11 +28,11 @@ object TideApi {
                 conn.requestMethod = "GET"
 
                 val res = conn.inputStream.bufferedReader().use { it.readText() }
-                Log.d("TideApi", "fetchBaseWeather raw: $res")
+                Log.d("TideApi", "fetchTide raw: $res")
 
                 JSONArray(res)
             } catch (e: Exception) {
-                Log.e("TideApi", "fetchBaseWeather 실패", e)
+                Log.e("TideApi", "fetchTide 실패", e)
                 null
             }
         }
