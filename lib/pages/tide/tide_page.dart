@@ -7,11 +7,18 @@ import '../../env.dart';
 
 import 'tide_models.dart';
 import 'tide_services.dart';
+import 'package:geolocator/geolocator.dart';
 
 class TidePage extends StatefulWidget {
   const TidePage({super.key});
   @override
   State<TidePage> createState() => _TidePageState();
+}
+
+class _Coord {
+  final double lat;
+  final double lon;
+  const _Coord(this.lat, this.lon);
 }
 
 class _TidePageState extends State<TidePage> {
@@ -20,11 +27,42 @@ class _TidePageState extends State<TidePage> {
   DateTime selectedDate = DateTime.now();
   bool loading = true;
   String? error;
+  static const _seoulLat = 37.5665;
+  static const _seoulLon = 126.9780;
+
+
 
   @override
   void initState() {
     super.initState();
-    _init(); // ← 비동기 초기화
+    _init();
+  }
+
+  Future<_Coord> _resolveCurrentOrSeoul() async {
+    try {
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
+      if (!serviceOn) return const _Coord(_seoulLat, _seoulLon);
+
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        return const _Coord(_seoulLat, _seoulLon);
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 5),
+      );
+
+      final lat = pos.latitude;
+      final lon = pos.longitude;
+      if (lat.isNaN || lon.isNaN) return const _Coord(_seoulLat, _seoulLon);
+      return _Coord(lat, lon);
+    } catch (_) {
+      return const _Coord(_seoulLat, _seoulLon);
+    }
   }
 
   Future<void> _init() async {
@@ -33,13 +71,16 @@ class _TidePageState extends State<TidePage> {
       error = null;
     });
     try {
-      // Env 로드 & API 생성
+      // 현재 위치 → 실패 시 서울
+      final coord = await _resolveCurrentOrSeoul();
+
+      // Env 로드 & API 생성 (areaId 비움: 좌표로 지역 매칭)
       api = await BadaTimeApi.fromEnv(
-        lat: 35.10,
-        lon: 129.03,
-        // areaId: '원하면사용',
+        lat: coord.lat,
+        lon: coord.lon,
       );
-      await _load(); // 데이터 로드
+
+      await _load();
     } catch (e) {
       setState(() {
         error = e.toString();
@@ -47,6 +88,7 @@ class _TidePageState extends State<TidePage> {
       });
     }
   }
+
 
   Future<void> _load() async {
     if (api == null) return;
@@ -107,9 +149,13 @@ class _TidePageState extends State<TidePage> {
   }) async {
     int selVal = currentValue;
     final ctrl = FixedExtentScrollController(
-      initialItem: (values.indexOf(currentValue)
-          .clamp(0, values.length - 1) as int), // clamp 캐스트
+      initialItem: values.indexOf(currentValue)
+          .clamp(0, values.length - 1)
+          .toInt(),
     );
+
+    int _safeDay(int y, int m, int d) =>
+        d.clamp(1, _lastDayOfMonth(y, m)).toInt();
 
     return showModalBottomSheet<int>(
       context: context,
@@ -325,9 +371,12 @@ class _TidePageState extends State<TidePage> {
             onPressed: () => Navigator.pop(context))
             : null,
         actions: [
-          IconButton(tooltip: '새로고침',
-              icon: const Icon(Icons.refresh),
-              onPressed: _load),
+          IconButton(
+            tooltip: '새로고침',
+            icon: const Icon(Icons.refresh),
+            onPressed: _init, // ← _load 에서 _init 으로 변경
+          ),
+
         ],
       ),
       body: loading
@@ -425,7 +474,7 @@ class _TidePageState extends State<TidePage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
               boxShadow: [BoxShadow(
-                color: const Color(0xFF3B5BDB).withValues(alpha: 0.12),
+                color: const Color(0xFF3B5BDB).withOpacity(0.12),
                 // withOpacity 대체
                 blurRadius: 10,
                 offset: const Offset(0, 6),
@@ -523,8 +572,9 @@ class _TidePageState extends State<TidePage> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFF2E5BFF).withValues(
-                alpha: 0.35)), // withOpacity 대체
+            border: Border.all(
+              color: const Color(0xFF2E5BFF).withOpacity(0.35),
+            ),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Text(text, style: const TextStyle(
