@@ -117,7 +117,7 @@ class TideEvent {
     if (dm.isNotEmpty) {
       delta = double.tryParse(dm.last.group(1)!);
     }
-    print('PARSED -> [$raw] => $hhmm / $height / $kind / $delta');
+    // print('PARSED -> [$raw] => $hhmm / $height / $kind / $delta');
     return TideEvent(
       label: label,
       hhmm: hhmm,

@@ -5,6 +5,8 @@ import 'dart:convert';
 import '../../wear_bridge.dart';
 import '../../env.dart';
 import 'region_picker.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' as geo;
 
 /// 이동 콜백 타입
 typedef MoveToCallback = void Function(String label, double lat, double lon);
@@ -17,8 +19,53 @@ class SeaWeatherPage extends StatefulWidget {
 }
 
 class _SeaWeatherPageState extends State<SeaWeatherPage> {
+
   String tab = '파도';
-  RegionItem _region = kRegions.firstWhere((r) => r.name == '부산광역시');
+  RegionItem _region = RegionItem('서울특별시', _seoulLat, _seoulLon);
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+  Future<void> _init() async {
+    final picked = await _resolveCurrentOrSeoul();
+    if (!mounted) return;
+    setState(() => _region = picked);
+  }
+  static const _seoulLat = 37.5665;
+  static const _seoulLon = 126.9780;
+  Future<RegionItem> _resolveCurrentOrSeoul() async {
+    try {
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
+      if (!serviceOn) {
+        return RegionItem('서울특별시', _seoulLat, _seoulLon);
+      }
+
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        return RegionItem('서울특별시', _seoulLat, _seoulLon);
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 6),
+      );
+
+      final lat = pos.latitude, lon = pos.longitude;
+      if (lat.isNaN || lon.isNaN) {
+        return RegionItem('서울특별시', _seoulLat, _seoulLon);
+      }
+
+      final name = await _reverseRegionName(lat, lon);
+      return RegionItem(name, lat, lon);
+    } catch (_) {
+      return RegionItem('서울특별시', _seoulLat, _seoulLon);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +77,13 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         centerTitle: true,
         title: const Text('바다 날씨',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+        actions: [
+          IconButton(
+            tooltip: '현재 위치로 새로고침',
+            icon: const Icon(Icons.my_location),
+            onPressed: _init, // ← 현재 페이지의 _init 호출
+          ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -38,7 +92,7 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${_region.name} 앞바다',
+                Text('${_region.name} ',
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w700)),
                 TextButton(
@@ -1233,6 +1287,33 @@ class _MiniLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MiniLinePainter oldDelegate) =>
       oldDelegate.secondary != secondary;
+}
+Future<String> _reverseRegionName(double lat, double lon) async {
+  try {
+    final list = await geo.placemarkFromCoordinates(lat, lon,
+        localeIdentifier: 'ko_KR');
+    if (list.isEmpty) return '현재 위치';
+
+    final p = list.first;
+
+    final siDo = (p.administrativeArea ?? '').trim();
+    final siGunGu = (p.locality ?? p.subAdministrativeArea ?? '').trim();
+
+    if (siDo.isNotEmpty && siGunGu.isNotEmpty) {
+      return '$siDo $siGunGu';
+    } else if (siDo.isNotEmpty) {
+      return siDo;
+    } else if (siGunGu.isNotEmpty) {
+      return siGunGu;
+    }
+
+    final dong = (p.subLocality ?? p.thoroughfare ?? '').trim();
+    if (dong.isNotEmpty) return dong;
+
+    return '현재 위치';
+  } catch (_) {
+    return '현재 위치';
+  }
 }
 
 DateTime _kDateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);

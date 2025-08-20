@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart'; // ✅ 현재 위치용
 
 import '../../app_bottom_nav.dart';
 import '../../routes.dart';
@@ -30,20 +31,18 @@ class FishingPointMainPage extends StatefulWidget {
 }
 
 class _FishingPointMainPageState extends State<FishingPointMainPage> {
-  // ✅ API 호출 기준 좌표(가변)
-  late double _originLat;
-  late double _originLon;
 
-  // 바다 구역별 기본 중심 좌표
-  static const Map<SeaArea, (double lat, double lon)> _seaDefaultCenters = {
-    SeaArea.west: (36.70, 126.30), // 태안 근처
-    SeaArea.south: (35.10, 129.04), // 부산 시내
-    SeaArea.east: (37.75, 128.90),  // 강릉 근처
-    SeaArea.jeju: (33.49, 126.53),  // 제주시
-  };
+  // ✅ 현재 위치(없으면 기본값 사용)
+  double? _myLat;
+  double? _myLon;
+
+  // 기본 좌표(부산 대략)
+  static const double _defaultLat = 35.1151;
+  static const double _defaultLon = 129.0415;
+
 
   Uri get _apiUri => Uri.parse(
-    '${Env.API_BASE_URL}/point?lat=$_originLat&lon=$_originLon&key=${Env.BADA_SERVICE_KEY}',
+    '${Env.API_BASE_URL}/point?lat=${_myLat ?? _defaultLat}&lon=${_myLon ?? _defaultLon}&key=${Env.BADA_SERVICE_KEY}',
   );
 
   static const _fallbackImg =
@@ -65,10 +64,44 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   @override
   void initState() {
     super.initState();
-    final c = _seaDefaultCenters[_selectedSea]!;
-    _originLat = c.$1;
-    _originLon = c.$2;
-    _fetchPoints();
+
+    _init(); 
+  }
+
+  Future<void> _init() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      await _ensureLocationPermission();
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      _myLat = pos.latitude;
+      _myLon = pos.longitude;
+    } catch (_) {
+      // 권한 거부/실패 → 기본좌표로 진행
+      _myLat = null;
+      _myLon = null;
+    }
+
+    await _fetchPoints();
+  }
+
+  Future<void> _ensureLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) throw Exception('위치 서비스가 꺼져 있어요.');
+
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.deniedForever) {
+      throw Exception('위치 권한이 없어 현재 위치를 쓸 수 없어요.');
+    }
   }
 
   void _setCenterBySea(SeaArea sea) {
@@ -90,15 +123,19 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       }
 
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final list = (body['fishing_point'] as List).cast<Map<String, dynamic>>();
+      final list =
+      (body['fishing_point'] as List).cast<Map<String, dynamic>>();
 
-      final parsed = list.map<FishingPoint>(_toModel).toList()
-        ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+
+      final parsed = list.map<FishingPoint>((j) => _toModel(j)).toList();
+      parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+
 
       setState(() {
         _points = parsed;
         _loading = false;
       });
+
 
       // 웨어러블 전송
       await WearBridge.sendFishingPoints(parsed
@@ -186,7 +223,11 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
     final lat = double.tryParse(latStr) ?? 0.0;
     final lon = double.tryParse(lonStr) ?? 0.0;
-    final dist = _haversineKm(_originLat, _originLon, lat, lon);
+
+    // ✅ 거리 계산 기준: 내 위치가 있으면 내 위치, 없으면 기본값
+    final baseLat = _myLat ?? _defaultLat;
+    final baseLon = _myLon ?? _defaultLon;
+    final dist = _haversineKm(baseLat, baseLon, lat, lon);
 
     return FishingPoint(
       id: '${lat}_${lon}_${name.hashCode}',
@@ -333,8 +374,8 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchPoints,
+            icon: const Icon(Icons.my_location),
+            onPressed: _init,
             tooltip: '새로고침',
           )
         ],
@@ -353,7 +394,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
                     Text(_error!, textAlign: TextAlign.center),
                     const SizedBox(height: 12),
                     FilledButton(
-                      onPressed: _fetchPoints,
+                      onPressed: _init,
                       child: const Text('다시 시도'),
                     ),
                   ],
@@ -369,13 +410,12 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
               separatorBuilder: (_, __) => const SizedBox(height: 16),
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return _TopFilters(
-                    seaLabel: _selectedSea.label,
-                    regionLabel: _selectedRegion ?? '지역',
-                    spotLabel: _selectedSpot ?? '스팟',
-                    onTapSea: _openSeaSheet,
-                    onTapRegion: _openRegionSheet,
-                    onTapSpot: _openSpotSheet,
+
+                  return _FilterRow(
+                    incheonSelected: _incheonSelected,
+                    onTap: () =>
+                        setState(() => _incheonSelected = !_incheonSelected),
+
                   );
                 }
                 if (index == 1) {
@@ -596,8 +636,7 @@ class _SelectableChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = selected ? const Color(0xFFEAF4FF) : Colors.white;
-    final border =
-    selected ? const Color(0xFFB6DAFF) : const Color(0xFFE4E6EB);
+    final border = selected ? const Color(0xFFB6DAFF) : const Color(0xFFE4E6EB);
     final text = selected ? const Color(0xFF2A79FF) : Colors.black87;
     return Material(
       color: Colors.transparent,
@@ -611,18 +650,11 @@ class _SelectableChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: border),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (selected) ...[
-                const Icon(Icons.check, size: 16, color: Color(0xFF2A79FF)),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(fontWeight: FontWeight.w800, color: text),
-              ),
-            ],
+
+          child: Text(
+            label,
+            style: TextStyle(color: text, fontWeight: FontWeight.w700),
+
           ),
         ),
       ),
