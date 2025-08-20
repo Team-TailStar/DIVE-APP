@@ -3,6 +3,8 @@ import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 // local.properties 읽기
 val localProps = gradleLocalProperties(rootDir, providers)
 val airKey: String = localProps.getProperty("AIRKOREA_SERVICE_KEY") ?: ""
+val base: String = localProps.getProperty("API_BASE_URL") ?: ""
+val bada: String = localProps.getProperty("BADA_SERVICE_KEY") ?: ""
 
 plugins {
     id("com.android.application")
@@ -19,6 +21,8 @@ android {
     defaultConfig {
         applicationId = "com.example.dive_app"
         buildConfigField("String", "AIRKOREA_SERVICE_KEY", "\"$airKey\"")
+        buildConfigField("String", "API_BASE_URL", "\"$base\"")
+        buildConfigField("String", "BADA_SERVICE_KEY", "\"$bada\"")
         minSdk = 23
         targetSdk = 35
 

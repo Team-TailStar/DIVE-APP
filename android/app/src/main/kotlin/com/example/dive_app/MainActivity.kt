@@ -12,6 +12,10 @@ import org.json.JSONObject
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.example.dive_app.api.AirKoreaApi
+import com.example.dive_app.api.WeatherApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 // 🔹 Flutter와 통신하기 위한 import
 import io.flutter.plugin.common.MethodChannel
@@ -69,18 +73,18 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
             "/request_weather" -> {
                 Log.d("PhoneMsg", "📩 워치에서 날씨 요청 수신")
-                val weatherJson = JSONObject().apply {
-                    put("sky", "맑음")
-                    put("temp", "27")
-                    put("humidity", "65%")
-                    put("windspd", "3.2m/s")
-                    put("rain", "0mm")
-                    put("winddir", "NE")
-                    put("waveHt", "0.5m")
-                    put("waveDir", "동쪽")
-                    put("obsWt", "24.5")
+
+                // suspend 함수라서 coroutine 필요
+                CoroutineScope(Dispatchers.IO).launch {
+                    val weatherJson = WeatherApi.fetchWeather(this@MainActivity)
+
+                    if (weatherJson != null) {
+                        Log.d("PhoneMsg", "🌤️ 날씨 데이터 준비됨 → $weatherJson")
+                        replyToWatch("/response_weather", weatherJson.toString())
+                    } else {
+                        Log.e("PhoneMsg", "❌ 날씨 데이터 불러오기 실패")
+                    }
                 }
-                replyToWatch("/response_weather", weatherJson.toString())
             }
 
             "/request_tide" -> {
