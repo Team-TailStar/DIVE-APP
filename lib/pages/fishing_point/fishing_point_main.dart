@@ -31,7 +31,6 @@ class FishingPointMainPage extends StatefulWidget {
 }
 
 class _FishingPointMainPageState extends State<FishingPointMainPage> {
-
   // ✅ 현재 위치(없으면 기본값 사용)
   double? _myLat;
   double? _myLon;
@@ -40,6 +39,13 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   static const double _defaultLat = 35.1151;
   static const double _defaultLon = 129.0415;
 
+  // 바다별 중심 좌표(간단한 대표지점)
+  static const Map<SeaArea, (double, double)> _seaCenters = {
+    SeaArea.west: (37.4563, 126.7052), // 인천
+    SeaArea.south: (35.1796, 129.0756), // 부산 시내
+    SeaArea.east: (37.7519, 128.8761), // 강릉
+    SeaArea.jeju: (33.4996, 126.5312), // 제주
+  };
 
   Uri get _apiUri => Uri.parse(
     '${Env.API_BASE_URL}/point?lat=${_myLat ?? _defaultLat}&lon=${_myLon ?? _defaultLon}&key=${Env.BADA_SERVICE_KEY}',
@@ -51,7 +57,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   // 선택 상태
   SeaArea _selectedSea = SeaArea.south; // 초기: 남해(부산)
   String? _selectedRegion; // 예) '부산광역시 영도구'
-  String? _selectedSpot;   // 예) '대항선착장'
+  String? _selectedSpot; // 예) '대항선착장'
 
   // (옵션) 반경 필터 참고용
   dynamic _lastChosenSeaSpot;
@@ -64,8 +70,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   @override
   void initState() {
     super.initState();
-
-    _init(); 
+    _init();
   }
 
   Future<void> _init() async {
@@ -104,12 +109,6 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     }
   }
 
-  void _setCenterBySea(SeaArea sea) {
-    final c = _seaDefaultCenters[sea]!;
-    _originLat = c.$1;
-    _originLon = c.$2;
-  }
-
   Future<void> _fetchPoints() async {
     setState(() {
       _loading = true;
@@ -123,19 +122,15 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       }
 
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final list =
-      (body['fishing_point'] as List).cast<Map<String, dynamic>>();
-
+      final list = (body['fishing_point'] as List).cast<Map<String, dynamic>>();
 
       final parsed = list.map<FishingPoint>((j) => _toModel(j)).toList();
       parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
-
 
       setState(() {
         _points = parsed;
         _loading = false;
       });
-
 
       // 웨어러블 전송
       await WearBridge.sendFishingPoints(parsed
@@ -205,7 +200,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     if (base.isEmpty) return fallback;
 
     final sep1 = base.endsWith('/') ? '' : '/';
-    final sep2 = p.startsWith('/') ? '' : '';
+    final sep2 = p.startsWith('/') ? '' : '/'; // ✅ 앞/뒤 슬래시 중복 방지
     return '$base$sep1$sep2$p';
   }
 
@@ -230,15 +225,14 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     final dist = _haversineKm(baseLat, baseLon, lat, lon);
 
     return FishingPoint(
-      id: '${lat}_${lon}_${name.hashCode}',
-      name: name,
-      location: addr,
-      distanceKm: dist,
-      depthRange: dpwt,
-      species: _parseSpecies(target),
-      imageUrl: imageUrl,
-      lat: lat,
-      lng: lon,
+        id: '${lat}_${lon}_${name.hashCode}',
+        name: name,
+        location: addr,
+        distanceKm: dist,
+        depthRange: dpwt,
+        species: _parseSpecies(target),
+    imageUrl: imageUrl,
+    lat: lon,
     );
   }
 
@@ -294,13 +288,16 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       },
     );
     if (ret != null && ret != _selectedSea) {
+      // 선택한 바다의 대표 좌표로 중심 변경 → API 재호출
+      final center = _seaCenters[ret]!;
       setState(() {
         _selectedSea = ret;
         _selectedRegion = null;
         _selectedSpot = null;
-        _setCenterBySea(ret); // ✅ 기준 좌표 변경
+        _myLat = center.$1;
+        _myLon = center.$2;
       });
-      await _fetchPoints();   // ✅ 좌표 바뀌었으니 재호출
+      await _fetchPoints();
     }
   }
 
@@ -360,6 +357,10 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
   // ---------- Build ----------
 
+  String get _seaChipLabel => _selectedSea.label;
+  String get _regionChipLabel => _selectedRegion ?? '지역 선택';
+  String get _spotChipLabel => _selectedSpot ?? '스팟 선택';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -376,7 +377,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
           IconButton(
             icon: const Icon(Icons.my_location),
             onPressed: _init,
-            tooltip: '새로고침',
+            tooltip: '현재 위치로 새로고침',
           )
         ],
       ),
@@ -391,7 +392,10 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(_error!, textAlign: TextAlign.center),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(_error!, textAlign: TextAlign.center),
+                    ),
                     const SizedBox(height: 12),
                     FilledButton(
                       onPressed: _init,
@@ -406,16 +410,17 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
             return ListView.separated(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              itemCount: filtered.length + 2, // 2 = 필터 + 브레드크럼
+              itemCount: filtered.length + 2, // 0: 필터, 1: 브레드크럼
               separatorBuilder: (_, __) => const SizedBox(height: 16),
               itemBuilder: (context, index) {
                 if (index == 0) {
-
-                  return _FilterRow(
-                    incheonSelected: _incheonSelected,
-                    onTap: () =>
-                        setState(() => _incheonSelected = !_incheonSelected),
-
+                  return _TopFilters(
+                    seaLabel: _seaChipLabel,
+                    regionLabel: _regionChipLabel,
+                    spotLabel: _spotChipLabel,
+                    onTapSea: _openSeaSheet,
+                    onTapRegion: _openRegionSheet,
+                    onTapSpot: _openSpotSheet,
                   );
                 }
                 if (index == 1) {
@@ -457,12 +462,14 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
     if (_selectedRegion != null) {
       it = it.where(
-              (p) => _normalizeRegion(p.location) == (_selectedRegion ?? ''));
+            (p) => _normalizeRegion(p.location) == (_selectedRegion ?? ''),
+      );
     }
     if (_selectedSpot != null) {
       it = it.where((p) => p.name.trim() == _selectedSpot);
     }
 
+    // (옵션) 반경 필터
     final hasCenter = _lastChosenSeaSpot != null &&
         (_lastChosenSeaSpot.lat != null) &&
         (_lastChosenSeaSpot.lon != null);
@@ -550,9 +557,11 @@ class _DropChip extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, color: Colors.black87)),
+              Text(
+                label,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w800, color: Colors.black87),
+              ),
               const SizedBox(width: 6),
               const Icon(Icons.expand_more, size: 18, color: Colors.black54),
             ],
@@ -579,8 +588,8 @@ class _PickerSheet<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding:
-      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SafeArea(
         top: false,
         child: Container(
@@ -627,8 +636,8 @@ class _PickerSheet<T> extends StatelessWidget {
 }
 
 class _SelectableChip extends StatelessWidget {
-  const _SelectableChip(
-      {required this.label, required this.selected, required this.onTap});
+  const _SelectableChip({
+    required this.label, required this.selected, required this.onTap});
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -636,7 +645,8 @@ class _SelectableChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = selected ? const Color(0xFFEAF4FF) : Colors.white;
-    final border = selected ? const Color(0xFFB6DAFF) : const Color(0xFFE4E6EB);
+    final border =
+    selected ? const Color(0xFFB6DAFF) : const Color(0xFFE4E6EB);
     final text = selected ? const Color(0xFF2A79FF) : Colors.black87;
     return Material(
       color: Colors.transparent,
@@ -650,11 +660,9 @@ class _SelectableChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: border),
           ),
-
           child: Text(
             label,
             style: TextStyle(color: text, fontWeight: FontWeight.w700),
-
           ),
         ),
       ),
@@ -793,8 +801,11 @@ class _Thumb extends StatelessWidget {
           errorBuilder: (_, __, ___) => Container(
             color: const Color(0xFFEFF3F8),
             alignment: Alignment.center,
-            child: const Icon(Icons.image_not_supported_outlined,
-                size: 28, color: Colors.black38),
+            child: const Icon(
+              Icons.image_not_supported_outlined,
+              size: 28,
+              color: Colors.black38,
+            ),
           ),
         ),
       ),

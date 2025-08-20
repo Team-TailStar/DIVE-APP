@@ -18,6 +18,9 @@ import com.example.dive_app.api.FishingPointApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import java.time.LocalDate
+import com.example.dive_app.api.TyphoonApi
 
 // 🔹 Flutter와 통신하기 위한 import
 import io.flutter.plugin.common.MethodChannel
@@ -117,6 +120,32 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                         Log.d("PhoneMsg", "🌊 낚시포인트 응답 전송: $pointJson")
                     } else {
                         Log.e("PhoneMsg", "❌ 낚시포인트 데이터 조회 실패")
+                    }
+                }
+            }
+
+            "/request_typhoon" -> {
+                Log.d("PhoneMsg", "📩 워치에서 태풍 정보 요청 수신")
+
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val to = LocalDate.now()
+                        val from = to.minusDays(30)
+                        val items: JSONArray = TyphoonApi.fetchTyphoonInfo(from, to, numOfRows = 100)
+
+
+                        val payload = JSONObject().apply {
+                            put("items", items)   // align with your tide style: wrap array in an object
+                        }
+
+                        replyToWatch("/response_typhoon", payload.toString())
+                        Log.d("PhoneMsg", "🌀 태풍 응답 전송: $payload")
+                    } catch (e: Exception) {
+                        Log.e("PhoneMsg", "❌ 태풍 데이터 조회 실패: ${e.message}")
+                        val err = JSONObject().apply {
+                            put("error", e.message ?: "unknown error")
+                        }
+                        replyToWatch("/response_typhoon", err.toString())
                     }
                 }
             }
