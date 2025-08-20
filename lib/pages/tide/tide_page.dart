@@ -356,51 +356,56 @@ class _TidePageState extends State<TidePage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFEDF6FB),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        centerTitle: true,
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: () async {
-                final picked = await showRegionPicker(
-                  context,
-                  initialName: _selectedDay?.regionName,
-                );
-                if (picked != null) {
-                  api = await BadaTimeApi.fromEnv(
-                    lat: picked.lat,
-                    lon: picked.lon,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          title: Text(title, style: const TextStyle(fontSize:20,fontWeight: FontWeight.w700)),
+          centerTitle: true,
+
+          leadingWidth: 80,
+
+          leading: SizedBox(
+            width: 100,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () async {
+                  final picked = await showRegionPicker(
+                    context,
+                    initialName: _selectedDay?.regionName,
                   );
-                  await _load();
-                }
-              },
-              child: const Text(
-                '지역선택',
-                style: TextStyle(fontSize: 16, color: Colors.black45),
+                  if (picked != null) {
+                    api = await BadaTimeApi.fromEnv(lat: picked.lat, lon: picked.lon);
+                    await _load();
+                  }
+                },
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 15),
+                  child: Text(
+                    '지역선택',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.fade, // 또는 .clip
+                    style: TextStyle(fontSize: 16, color: Colors.black45),
+                  ),
+                ),
               ),
             ),
-            // if (Navigator.canPop(context))
-            //   IconButton(
-            //     icon: const Icon(Icons.chevron_left, size: 32),
-            //     onPressed: () => Navigator.pop(context),
-            //   ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: '새로고침',
-            icon: const Icon(Icons.refresh),
-            onPressed: _init, // ← _load 에서 _init 으로 변경
           ),
 
-        ],
-      ),
-      body: loading
+          actions: [
+            IconButton(
+              tooltip: '새로고침',
+              icon: const Icon(Icons.refresh),
+              onPressed: _init,
+            ),
+          ],
+        ),
+
+
+        body: loading
           ? const Center(child: CircularProgressIndicator())
           : error != null
           ? _buildError(error!)
