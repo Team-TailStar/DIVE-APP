@@ -365,14 +365,13 @@ class _TidePageState extends State<TidePage> {
         leading: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              tooltip: '지역 선택',
-              icon: const Icon(Icons.place, size: 26, color: Colors.black87),
+            TextButton(
               onPressed: () async {
-                final picked = await showRegionPicker(context,
-                    initialName: _selectedDay?.regionName);
+                final picked = await showRegionPicker(
+                  context,
+                  initialName: _selectedDay?.regionName,
+                );
                 if (picked != null) {
-                  // 새로운 좌표로 API 교체 후 다시 로드
                   api = await BadaTimeApi.fromEnv(
                     lat: picked.lat,
                     lon: picked.lon,
@@ -380,6 +379,10 @@ class _TidePageState extends State<TidePage> {
                   await _load();
                 }
               },
+              child: const Text(
+                '지역선택',
+                style: TextStyle(fontSize: 16, color: Colors.black45),
+              ),
             ),
             // if (Navigator.canPop(context))
             //   IconButton(
