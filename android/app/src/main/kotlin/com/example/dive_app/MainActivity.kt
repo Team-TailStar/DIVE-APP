@@ -13,6 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.example.dive_app.api.AirKoreaApi
 import com.example.dive_app.api.WeatherApi
+import com.example.dive_app.api.TideApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,35 +90,19 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
             "/request_tide" -> {
                 Log.d("PhoneMsg", "📩 워치에서 조석 요청 수신")
-                val tidesArray = listOf(
-                    JSONObject().apply {
-                        put("pThisDate", "2025-8-19-화-7-3")
-                        put("pName", "부산")
-                        put("pMul", "4물")
-                        put("pSun", "05:51/19:00")
-                        put("pMoon", "07:32/19:59")
-                        put("jowi1", "03:10")
-                        put("jowi2", "12:30")
-                        put("jowi3", "18:40")
-                        put("jowi4", "")
-                    },
-                    JSONObject().apply {
-                        put("pThisDate", "2025-8-20-수-6-3")
-                        put("pName", "부산")
-                        put("pMul", "4물")
-                        put("pSun", "05:51/19:00")
-                        put("pMoon", "07:32/19:59")
-                        put("jowi1", "03:10")
-                        put("jowi2", "12:30")
-                        put("jowi3", "18:40")
-                        put("jowi4", "")
-                    }
-                )
 
-                val tideJson = JSONObject().apply {
-                    put("tides", tidesArray)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val tideArray = TideApi.fetchTideByLocation(this@MainActivity)
+                    if (tideArray != null) {
+                        val tideJson = JSONObject().apply {
+                            put("tides", tideArray)   // ✅ 배열을 객체에 감싸줌
+                        }
+                        replyToWatch("/response_tide", tideJson.toString())
+                        Log.d("PhoneMsg", "🌊 조석 응답 전송: $tideJson")
+                    } else {
+                        Log.e("PhoneMsg", "❌ 조석 데이터 조회 실패")
+                    }
                 }
-                replyToWatch("/response_tide", tideJson.toString())
             }
 
             "/request_point" -> {
