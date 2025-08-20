@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:intl/intl.dart';
-
 import '../../app_bottom_nav.dart';
-import '../../env.dart';
-
 import 'tide_models.dart';
 import 'tide_services.dart';
 import 'package:geolocator/geolocator.dart';
-
+import '../sea_weather/region_picker.dart';
 class TidePage extends StatefulWidget {
   const TidePage({super.key});
   @override
@@ -366,10 +362,32 @@ class _TidePageState extends State<TidePage> {
         scrolledUnderElevation: 0,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
-        leading: Navigator.canPop(context)
-            ? IconButton(icon: const Icon(Icons.chevron_left, size: 32),
-            onPressed: () => Navigator.pop(context))
-            : null,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: '지역 선택',
+              icon: const Icon(Icons.place, size: 26, color: Colors.black87),
+              onPressed: () async {
+                final picked = await showRegionPicker(context,
+                    initialName: _selectedDay?.regionName);
+                if (picked != null) {
+                  // 새로운 좌표로 API 교체 후 다시 로드
+                  api = await BadaTimeApi.fromEnv(
+                    lat: picked.lat,
+                    lon: picked.lon,
+                  );
+                  await _load();
+                }
+              },
+            ),
+            // if (Navigator.canPop(context))
+            //   IconButton(
+            //     icon: const Icon(Icons.chevron_left, size: 32),
+            //     onPressed: () => Navigator.pop(context),
+            //   ),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: '새로고침',
