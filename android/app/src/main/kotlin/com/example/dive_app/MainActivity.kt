@@ -9,12 +9,19 @@ import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.location.LocationServices
 import org.json.JSONObject
+
+// 🔹 Flutter와 통신하기 위한 import
+import io.flutter.plugin.common.MethodChannel
+
 /**
  * FlutterActivity + WearOS 메시지 수신 로그
- * - 워치에서 날씨/조석/포인트 요청을 보냈을 때
- * - 폰이 수신하면 Logcat에 로그 출력
+ * - 워치에서 날씨/조석/포인트/심박수 요청을 보냈을 때
+ * - 폰이 수신하면 Logcat 출력 + Flutter로 전달
  */
 class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener {
+
+    // 🔹 Flutter와 연결할 채널 이름 (Flutter쪽 WatchConnectPage와 동일해야 함)
+    private val CHANNEL = "com.example.dive_app/heart_rate"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,6 +30,7 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
     override fun onResume() {
         super.onResume()
         Wearable.getMessageClient(this).addListener(this)
+        // 앱 실행시 워치에 심박수 요청 한번 전송
         replyToWatch("/request_heart_rate", "request")
     }
 
@@ -38,22 +46,24 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         when (path) {
             "/request_air_quality" -> {
                 Log.d("PhoneMsg", "📩 워치에서 미세먼지 요청 수신")
-                    val airQualityJson = JSONObject().apply {
-                        put("no2Value", "0.009")
-                        put("o3Value", "0.023")
-                        put("pm10Value", "15")
-                        put("pm25Value", "7")
-                        put("o3Grade", "1")
-                        put("no2Grade", "2")
-                        put("pm10Grade", "3")
-                        put("pm25Grade", "4")
-                    }
+                val airQualityJson = JSONObject().apply {
+                    put("no2Value", "0.009")
+                    put("o3Value", "0.023")
+                    put("pm10Value", "15")
+                    put("pm25Value", "7")
+                    put("o3Grade", "1")
+                    put("no2Grade", "2")
+                    put("pm10Grade", "3")
+                    put("pm25Grade", "4")
+                }
                 replyToWatch("/response_air_quality", airQualityJson.toString())
             }
+
             "/request_location" -> {
                 Log.d("PhoneMsg", "📩 워치에서 현재 위치 요청 수신")
                 responseCurrentLocation()
             }
+
             "/request_weather" -> {
                 Log.d("PhoneMsg", "📩 워치에서 날씨 요청 수신")
                 val weatherJson = JSONObject().apply {
@@ -105,7 +115,6 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
             "/request_point" -> {
                 Log.d("PhoneMsg", "📩 워치에서 포인트 요청 수신")
-
                 val pointsArray = listOf(
                     JSONObject().apply {
                         put("name", "부산광역시")
@@ -143,11 +152,13 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                     val json = JSONObject(data)
                     val bpm = json.getInt("heart_rate")
                     Log.d("PhoneMsg", "❤️ 워치에서 심박수 수신: $bpm bpm")
-                    // TODO: 여기에 UI 업데이트, 실시간으로 요청 보내는 코드 필요함
-                    // 예시 : UI 페이지에 replyToWatch("/request_heart_rate", "request")
-                    // 이렇게 보내고 저장한 뒤에 UI에 띄우기
-                } catch (e: NumberFormatException) {
-                    Log.e("PhoneMsg", "⚠️ 심박수 데이터 파싱 실패: $data")
+
+                    // 🔹 Flutter로 전달
+                    MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL)
+                        .invokeMethod("onHeartRate", bpm)
+
+                } catch (e: Exception) {
+                    Log.e("PhoneMsg", "⚠️ 심박수 파싱 실패: $data")
                 }
             }
 
