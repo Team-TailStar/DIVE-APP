@@ -8,6 +8,8 @@ class Env {
   static late final String BADA_SERVICE_KEY;
   static late final bool   USE_TIDE_MOCK;
 
+  static late final String IMAGE_BASE_URL;
+
   static bool _loaded = false;
   static Future<void>? _loading; // 동시 호출 방지
 
@@ -48,6 +50,9 @@ class Env {
     API_BASE_URL         = _s(j['API_BASE_URL']);
     BADA_SERVICE_KEY     = _s(j['BADA_SERVICE_KEY']);
     USE_TIDE_MOCK        = _b(j['USE_TIDE_MOCK']);
+
+    IMAGE_BASE_URL       = _s(j['IMAGE_BASE_URL']);
+
 
     // (선택) 필수 키 검증: 개발 중이라면 assert로 막아두면 빨리 발견 가능
     assert(API_BASE_URL.isNotEmpty, 'API_BASE_URL is required in assets/env.json');

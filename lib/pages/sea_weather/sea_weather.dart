@@ -6,6 +6,9 @@ import '../../wear_bridge.dart';
 import '../../env.dart';
 import 'region_picker.dart';
 
+/// 이동 콜백 타입
+typedef MoveToCallback = void Function(String label, double lat, double lon);
+
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
 
@@ -81,6 +84,12 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
                 key: ValueKey('temp-${_region.lat},${_region.lon}'),
                 lat: _region.lat,
                 lon: _region.lon,
+                onMoveTo: (label, lat, lon) {
+                  // 관측소로 이동
+                  setState(() {
+                    _region = RegionItem(label, lat, lon);
+                  });
+                },
               ),
           ],
         ),
@@ -116,8 +125,7 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
   void didUpdateWidget(covariant _WaveSectionApi oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.lat != widget.lat || oldWidget.lon != widget.lon) {
-      print(
-          "📡 Wave: region changed -> refetch lat=${widget.lat}, lon=${widget.lon}");
+      print("📡 Wave: region changed -> refetch lat=${widget.lat}, lon=${widget.lon}");
       setState(() {
         loading = true;
         error = null;
@@ -236,8 +244,7 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
     if (error != null) {
       return Padding(
         padding: const EdgeInsets.only(top: 20),
-        child:
-        Text('불러오기 실패: $error', style: const TextStyle(color: Colors.red)),
+        child: Text('불러오기 실패: $error', style: const TextStyle(color: Colors.red)),
       );
     }
     if (waves.isEmpty) {
@@ -294,8 +301,8 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
       children: [
         Center(
             child: Text(_formatKDate(today),
-                style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.w800))),
+                style:
+                const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
         const SizedBox(height: 16),
         _TopThreeCards(period: topPeriod, height: topHeight, dir: topDir),
         const SizedBox(height: 24),
@@ -386,9 +393,15 @@ class _TopThreeCards extends StatelessWidget {
 }
 
 class _TempSection extends StatefulWidget {
-  const _TempSection({super.key, required this.lat, required this.lon});
+  const _TempSection({
+    super.key,
+    required this.lat,
+    required this.lon,
+    required this.onMoveTo,
+  });
   final double lat;
   final double lon;
+  final MoveToCallback onMoveTo;
 
   @override
   State<_TempSection> createState() => _TempSectionState();
@@ -411,8 +424,7 @@ class _TempSectionState extends State<_TempSection> {
   void didUpdateWidget(covariant _TempSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.lat != widget.lat || oldWidget.lon != widget.lon) {
-      print(
-          "📡 Temp: region changed -> refetch lat=${widget.lat}, lon=${widget.lon}");
+      print("📡 Temp: region changed -> refetch lat=${widget.lat}, lon=${widget.lon}");
       setState(() {
         loading = true;
         error = null;
@@ -492,8 +504,7 @@ class _TempSectionState extends State<_TempSection> {
     if (error != null) {
       return Padding(
         padding: const EdgeInsets.only(top: 20),
-        child:
-        Text('불러오기 실패: $error', style: const TextStyle(color: Colors.red)),
+        child: Text('불러오기 실패: $error', style: const TextStyle(color: Colors.red)),
       );
     }
     if (stations.isEmpty) {
@@ -512,20 +523,18 @@ class _TempSectionState extends State<_TempSection> {
       children: [
         Center(
             child: Text(_formatKDate(today),
-                style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.w800))),
+                style:
+                const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
         const SizedBox(height: 16),
         Card(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1FAFF),
                     borderRadius: BorderRadius.circular(12),
@@ -572,6 +581,7 @@ class _TempSectionState extends State<_TempSection> {
                         builder: (_) => TempComparePage(
                           lat: widget.lat,
                           lon: widget.lon,
+                          onMoveTo: widget.onMoveTo,
                         ),
                       ),
                     ),
@@ -637,6 +647,14 @@ class _TempSectionState extends State<_TempSection> {
                         dist: s.distanceKm == null
                             ? '-'
                             : '${s.distanceKm!.toStringAsFixed(1)}㎞',
+                        onMove: (s.lat != null && s.lon != null)
+                            ? () => widget.onMoveTo(s.name, s.lat!, s.lon!)
+                            : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('이 관측소 좌표가 없습니다.')),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -650,9 +668,15 @@ class _TempSectionState extends State<_TempSection> {
 }
 
 class TempComparePage extends StatefulWidget {
-  const TempComparePage({super.key, required this.lat, required this.lon});
+  const TempComparePage({
+    super.key,
+    required this.lat,
+    required this.lon,
+    required this.onMoveTo,
+  });
   final double lat;
   final double lon;
+  final MoveToCallback onMoveTo;
 
   @override
   State<TempComparePage> createState() => _TempComparePageState();
@@ -706,8 +730,7 @@ class _TempComparePageState extends State<TempComparePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar:
-      AppBar(title: const Text('바다 날씨'), centerTitle: true),
+      appBar: AppBar(title: const Text('바다 날씨'), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
@@ -759,6 +782,17 @@ class _TempComparePageState extends State<TempComparePage> {
                         dist: e.distanceKm == null
                             ? '-'
                             : '${e.distanceKm!.toStringAsFixed(1)}㎞',
+                        onMove: (e.lat != null && e.lon != null)
+                            ? () {
+                          widget.onMoveTo(e.name, e.lat!, e.lon!);
+                          Navigator.pop(context);
+                        }
+                            : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('이 관측소 좌표가 없습니다.')),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -840,8 +874,7 @@ class _ValuePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
           color: const Color(0xFFF1FAFF),
           borderRadius: BorderRadius.circular(12)),
@@ -877,8 +910,7 @@ class _ForecastBlock extends StatelessWidget {
     TextStyle(fontWeight: FontWeight.w800, color: Colors.black54);
 
     return Card(
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
         child: Column(
@@ -921,7 +953,7 @@ class _ForecastBlock extends StatelessWidget {
   List<Widget> _buildGrouped(List<_ForecastRowData> rows) {
     final List<Widget> cards = [];
     String? currentDate;
-    List<_ForecastRowData> bucket = [];
+    final List<_ForecastRowData> bucket = [];
 
     void flush() {
       if (bucket.isEmpty) return;
@@ -957,18 +989,16 @@ class _ForecastCard extends StatelessWidget {
       children: List.generate(
         v.length,
             (i) => Padding(
-          padding:
-          EdgeInsets.only(bottom: i == v.length - 1 ? 0 : 12),
-          child: Text(v[i],
-              overflow: TextOverflow.ellipsis, softWrap: false),
+          padding: EdgeInsets.only(bottom: i == v.length - 1 ? 0 : 12),
+          child:
+          Text(v[i], overflow: TextOverflow.ellipsis, softWrap: false),
         ),
       ),
     );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding:
-      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -995,8 +1025,7 @@ class _ForecastCard extends StatelessWidget {
                       padding: EdgeInsets.only(
                           bottom: i == items.length - 1 ? 0 : 12),
                       child: _AmPmChip(
-                          text: items[i].amPm,
-                          isAm: items[i].amPm == '오전'),
+                          text: items[i].amPm, isAm: items[i].amPm == '오전'),
                     ),
                   ),
                 ),
@@ -1067,18 +1096,20 @@ class _CompareRow extends StatelessWidget {
   final bool trendUp;
   final String temp;
   final String dist;
+  final VoidCallback onMove;
 
-  const _CompareRow(
-      {required this.place,
-        required this.trendUp,
-        required this.temp,
-        required this.dist});
+  const _CompareRow({
+    required this.place,
+    required this.trendUp,
+    required this.temp,
+    required this.dist,
+    required this.onMove,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1103,12 +1134,11 @@ class _CompareRow extends StatelessWidget {
             flex: 3,
             child: Center(
               child: OutlinedButton(
-                onPressed: () {},
+                onPressed: onMove,
                 style: OutlinedButton.styleFrom(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 child: const Text('이동'),
               ),
@@ -1121,8 +1151,7 @@ class _CompareRow extends StatelessWidget {
 
   static Widget _tempPill({required String text}) {
     return Container(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
           color: const Color(0xFFFFF0F0),
           borderRadius: BorderRadius.circular(10)),
@@ -1145,8 +1174,7 @@ class _MiniLineChart extends StatelessWidget {
         final double h =
         constraints.maxHeight.isFinite ? constraints.maxHeight : 150.0;
         return CustomPaint(
-            size: Size(w, h),
-            painter: _MiniLinePainter(secondary: secondary));
+            size: Size(w, h), painter: _MiniLinePainter(secondary: secondary));
       },
     );
   }
@@ -1262,8 +1290,7 @@ String _modeOrLast(List<String> vals) {
   for (final v in vals) {
     freq[v] = (freq[v] ?? 0) + 1;
   }
-  final best =
-      freq.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  final best = freq.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   return best;
 }
 
@@ -1393,10 +1420,7 @@ class SeaWave {
     (_pick<String>(j, ['wavedir', 'dir']) ?? '').toString().toUpperCase();
 
     return SeaWave(
-        time: dt,
-        wavePrd: prd,
-        waveHt: ht,
-        waveDir: dir.isEmpty ? '-' : dir);
+        time: dt, wavePrd: prd, waveHt: ht, waveDir: dir.isEmpty ? '-' : dir);
   }
 }
 
@@ -1405,12 +1429,17 @@ class SeaStationTemp {
   final DateTime obsTime;
   final double tempC;
   final double? distanceKm;
+  final double? lat; // 추가
+  final double? lon; // 추가
 
-  SeaStationTemp(
-      {required this.name,
-        required this.obsTime,
-        required this.tempC,
-        this.distanceKm});
+  SeaStationTemp({
+    required this.name,
+    required this.obsTime,
+    required this.tempC,
+    this.distanceKm,
+    this.lat,
+    this.lon,
+  });
 
   static String _norm(String k) {
     final r = RegExp(r'[A-Za-z_]');
@@ -1419,8 +1448,7 @@ class SeaStationTemp {
 
   static T? _pick<T>(Map<String, dynamic> j, List<String> cands) {
     for (final c in cands) {
-      final hit =
-      j.keys.firstWhere((k) => _norm(k) == c, orElse: () => '');
+      final hit = j.keys.firstWhere((k) => _norm(k) == c, orElse: () => '');
       if (hit.isNotEmpty) return j[hit] as T?;
     }
     return null;
@@ -1440,7 +1468,7 @@ class SeaStationTemp {
         DateTime.tryParse(t.replaceFirst(' ', 'T')) ?? DateTime.now();
 
     final rawTemp = _pick(j, [
-      'obs_wt',          // BadaTime 응답의 수온 키
+      'obs_wt', // BadaTime 응답의 수온 키
       'sst',
       'sea_temperature',
       'seatemperature',
@@ -1455,7 +1483,18 @@ class SeaStationTemp {
     final distanceKm =
     double.tryParse(dt.replaceAll('km', '').replaceAll('㎞', '').trim());
 
+    double? _num(dynamic v) =>
+        v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
+    final lat = _num(j['lat'] ?? j['latitude'] ?? j['y'] ?? j['obs_lat']);
+    final lon = _num(j['lon'] ?? j['lng'] ?? j['longitude'] ?? j['x'] ?? j['obs_lon']);
+
     return SeaStationTemp(
-        name: name, obsTime: obsTime, tempC: tempC, distanceKm: distanceKm);
+      name: name,
+      obsTime: obsTime,
+      tempC: tempC,
+      distanceKm: distanceKm,
+      lat: lat,
+      lon: lon,
+    );
   }
 }
