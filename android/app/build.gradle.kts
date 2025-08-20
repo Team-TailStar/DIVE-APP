@@ -1,3 +1,11 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+
+// local.properties 읽기
+val localProps = gradleLocalProperties(rootDir, providers)
+val airKey: String = localProps.getProperty("AIRKOREA_SERVICE_KEY") ?: ""
+val base: String = localProps.getProperty("API_BASE_URL") ?: ""
+val bada: String = localProps.getProperty("BADA_SERVICE_KEY") ?: ""
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,6 +20,9 @@ android {
 
     defaultConfig {
         applicationId = "com.example.dive_app"
+        buildConfigField("String", "AIRKOREA_SERVICE_KEY", "\"$airKey\"")
+        buildConfigField("String", "API_BASE_URL", "\"$base\"")
+        buildConfigField("String", "BADA_SERVICE_KEY", "\"$bada\"")
         minSdk = 23
         targetSdk = 35
 
@@ -24,6 +35,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     kotlinOptions {
@@ -52,6 +67,9 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation ("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1") // 최신 버전
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 }
 
 flutter {
