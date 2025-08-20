@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app_bottom_nav.dart';
-import '../../ble/ble_manager.dart';
 
 class WatchConnectPage extends StatefulWidget {
   const WatchConnectPage({super.key});
@@ -12,180 +12,71 @@ class WatchConnectPage extends StatefulWidget {
 }
 
 class _WatchConnectPageState extends State<WatchConnectPage> {
-  bool _connecting = false;
+  static const platform = MethodChannel("com.example.dive_app/heart_rate");
+
+  int _bpm = 0;
   DateTime? _lastUpdate;
-
-  // 최근 60초 심박 히스토리 (timestamp, bpm)
-  final List<_HrPoint> _history = <_HrPoint>[];
-  late final VoidCallback _hrListener;
-
+  final List<_HrPoint> _history = [];
   Timer? _uiTicker;
 
   @override
   void initState() {
     super.initState();
-    _autoConnectOnce();
 
-    // ValueListenable을 구독해서 history에 누적
-    _hrListener = () {
-      final hr = BleManager.I.heartRate.value;
-      if (hr != null && hr > 0) {
-        _pushHeart(hr);
+    // Kotlin → Flutter로 전달된 심박수 수신
+    platform.setMethodCallHandler((call) async {
+      if (call.method == "onHeartRate") {
+        final bpm = call.arguments as int;
+        _pushHeart(bpm);
       }
-    };
-    BleManager.I.heartRate.addListener(_hrListener);
+    });
 
-    // 500ms마다 UI 리드로우(그래프가 부드럽게 이동)
+    // 500ms마다 UI 갱신 (그래프 움직임 부드럽게)
     _uiTicker = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!mounted) return;
-      setState(() {}); // 그래프의 X축(now 기반) 이동 반영
+      setState(() {});
     });
   }
 
   @override
   void dispose() {
     _uiTicker?.cancel();
-    BleManager.I.heartRate.removeListener(_hrListener);
     super.dispose();
   }
 
   void _pushHeart(int bpm) {
     final now = DateTime.now();
-    _lastUpdate = now;
-    _history.add(_HrPoint(now, bpm));
-    // 60초 윈도우 유지
-    final cutoff = now.subtract(const Duration(seconds: 60));
-    while (_history.isNotEmpty && _history.first.t.isBefore(cutoff)) {
-      _history.removeAt(0);
-    }
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _autoConnectOnce() async {
-    if (BleManager.I.isConnected.value) return;
-    setState(() => _connecting = true);
-    try {
-      final ok = await BleManager.I.prepare();
-      if (ok) {
-        await BleManager.I.scanAndConnect(containsName: "Watch");
-        // 연결되면 데이터 새로고침 한 번
-        if (BleManager.I.isConnected.value) {
-          unawaited(BleManager.I.refresh().catchError((_) {}));
-        }
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('블루투스 권한/설정을 확인해 주세요.')),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('자동 연결 실패: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _connecting = false);
-    }
-  }
-
-  Future<void> _manualConnect() async {
-    if (_connecting) return;
-    setState(() => _connecting = true);
-    try {
-      final ok = await BleManager.I.prepare();
-      if (ok) {
-        await BleManager.I.scanAndConnect(containsName: "Watch");
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('블루투스 권한/설정을 확인해 주세요.')),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('연결 실패: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _connecting = false);
-    }
-  }
-
-  Future<void> _refresh() async {
-    try {
-      await BleManager.I.refresh();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('심박 데이터를 새로고침했어요.')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('새로고침 실패: $e')),
-      );
-    }
-  }
-
-  String _statusText(bool connected) {
-    if (connected) return '워치 연결됨';
-    return _connecting ? '연결 시도 중…' : '연결 필요';
+    setState(() {
+      _bpm = bpm;
+      _lastUpdate = now;
+      _history.add(_HrPoint(now, bpm));
+      // 최근 60초만 유지
+      _history.removeWhere((p) => p.t.isBefore(now.subtract(const Duration(seconds: 60))));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ValueListenableBuilder<bool>(
-          valueListenable: BleManager.I.isConnected,
-          builder: (context, connected, _) {
-            final hr = BleManager.I.heartRate.value ?? 0;
-            return Column(
-              children: [
-                _Header(title: '심박수', subtitle: _statusText(connected)),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: Center(
-                    child: _HeartPanel(
-                      bpm: connected ? hr : 0,
-                      connected: connected,
-                      loading: _connecting,
-                      lastUpdate: _lastUpdate,
-                      onRefresh: connected ? _refresh : null,
-                      history: _history,
-                    ),
-                  ),
+        child: Column(
+          children: [
+            _Header(title: "심박수", subtitle: "워치 연결됨"),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Center(
+                child: _HeartPanel(
+                  bpm: _bpm,
+                  connected: true,
+                  loading: false,
+                  lastUpdate: _lastUpdate,
+                  onRefresh: null,
+                  history: _history,
                 ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: connected || _connecting ? null : _manualConnect,
-                          icon: _connecting
-                              ? const SizedBox(
-                            width: 18, height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                              : const Icon(Icons.bluetooth_searching),
-                          label: Text(_connecting ? '연결 중…' : '워치에 연결'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: connected ? BleManager.I.disconnect : null,
-                          icon: const Icon(Icons.link_off),
-                          label: const Text('연결 해제'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
       bottomNavigationBar: const AppBottomNav(currentIndex: 4),
@@ -273,7 +164,7 @@ class _HeartPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 아이콘 + 숫자
+          // 아이콘 + bpm
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -309,18 +200,11 @@ class _HeartPanel extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // 60초 스파크라인
+          // 최근 60초 그래프
           SizedBox(
             height: 80,
             width: double.infinity,
             child: _Sparkline(history: history),
-          ),
-          const SizedBox(height: 16),
-
-          FilledButton.icon(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh),
-            label: const Text('새로고침'),
           ),
         ],
       ),
@@ -328,7 +212,7 @@ class _HeartPanel extends StatelessWidget {
   }
 }
 
-/* ---------- 스파크라인(패키지 없이 CustomPainter) ---------- */
+/* ---------- 스파크라인 ---------- */
 
 class _Sparkline extends StatelessWidget {
   const _Sparkline({required this.history});
@@ -352,26 +236,21 @@ class _SparkPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final now = DateTime.now();
     final cutoff = now.subtract(const Duration(seconds: 60));
-
-    // 시야 내 데이터
     final pts = history.where((p) => p.t.isAfter(cutoff)).toList();
-    if (pts.length < 2) {
-      // 그리드만
-      _drawGrid(canvas, size);
-      return;
-    }
+
+    _drawGrid(canvas, size);
+
+    if (pts.length < 2) return;
 
     final minBpm = (pts.map((e) => e.bpm).reduce((a, b) => a < b ? a : b) - 5).clamp(40, 120);
     final maxBpm = (pts.map((e) => e.bpm).reduce((a, b) => a > b ? a : b) + 5).clamp(50, 200);
     final span = (maxBpm - minBpm).toDouble();
 
-    _drawGrid(canvas, size);
-
     final path = Path();
     for (var i = 0; i < pts.length; i++) {
       final p = pts[i];
-      final dt = now.difference(p.t).inMilliseconds / 1000.0; // sec
-      final x = size.width * (1 - (dt / 60.0)); // 오른->왼 이동
+      final dt = now.difference(p.t).inMilliseconds / 1000.0;
+      final x = size.width * (1 - (dt / 60.0));
       final y = size.height * (1 - ((p.bpm - minBpm) / span));
       if (i == 0) {
         path.moveTo(x, y);
@@ -400,15 +279,12 @@ class _SparkPainter extends CustomPainter {
       ..strokeWidth = 1
       ..color = cs.onSurface.withOpacity(.06);
 
-    // 15s 간격 세로선 5개
     for (int i = 1; i <= 3; i++) {
       final x = size.width * (i / 4);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
     }
-    // 두 줄
     canvas.drawLine(Offset(0, size.height * .33), Offset(size.width, size.height * .33), grid);
     canvas.drawLine(Offset(0, size.height * .66), Offset(size.width, size.height * .66), grid);
-    // 외곽
     canvas.drawRect(Offset.zero & size, grid);
   }
 
