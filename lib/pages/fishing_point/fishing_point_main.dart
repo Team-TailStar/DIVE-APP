@@ -1,9 +1,9 @@
-
 import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart'; // ✅ 현재 위치용
 
 import '../../app_bottom_nav.dart';
 import '../../routes.dart';
@@ -19,12 +19,16 @@ class FishingPointMainPage extends StatefulWidget {
 }
 
 class _FishingPointMainPageState extends State<FishingPointMainPage> {
+  // ✅ 현재 위치(없으면 기본값 사용)
+  double? _myLat;
+  double? _myLon;
 
-  static const double _originLat = 35.1151;
-  static const double _originLon = 129.0415;
+  // 기본 좌표(부산 대략)
+  static const double _defaultLat = 35.1151;
+  static const double _defaultLon = 129.0415;
 
   Uri get _apiUri => Uri.parse(
-    '${Env.API_BASE_URL}/point?lat=$_originLat&lon=$_originLon&key=${Env.BADA_SERVICE_KEY}',
+    '${Env.API_BASE_URL}/point?lat=${_myLat ?? _defaultLat}&lon=${_myLon ?? _defaultLon}&key=${Env.BADA_SERVICE_KEY}',
   );
 
   static const _fallbackImg =
@@ -39,7 +43,43 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   @override
   void initState() {
     super.initState();
-    _fetchPoints();
+    _init(); // ✅ 권한 + 현재 위치 + 목록 호출
+  }
+
+  Future<void> _init() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      await _ensureLocationPermission();
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      _myLat = pos.latitude;
+      _myLon = pos.longitude;
+    } catch (_) {
+      // 권한 거부/실패 → 기본좌표로 진행
+      _myLat = null;
+      _myLon = null;
+    }
+
+    await _fetchPoints();
+  }
+
+  Future<void> _ensureLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) throw Exception('위치 서비스가 꺼져 있어요.');
+
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.deniedForever) {
+      throw Exception('위치 권한이 없어 현재 위치를 쓸 수 없어요.');
+    }
   }
 
   Future<void> _fetchPoints() async {
@@ -55,30 +95,34 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       }
 
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final list = (body['fishing_point'] as List).cast<Map<String, dynamic>>();
+      final list =
+      (body['fishing_point'] as List).cast<Map<String, dynamic>>();
 
       final parsed = list.map<FishingPoint>((j) => _toModel(j)).toList();
 
+      // ✅ 내 위치 기준 정렬(없으면 기본좌표 기준으로 이미 계산됨)
       parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
 
       setState(() {
         _points = parsed;
         _loading = false;
       });
-      await WearBridge.sendFishingPoints(parsed.map((p) =>
-      {
-        'name': p.name,
-        'point_nm': p.name,
-        'dpwt': p.depthRange,
-        'material': '',
-        'tide_time': '',
-        'target': p.species.join(','),
-        'lat': p.lat,
-        'lon': p.lng,
-        'point_dt': '',
+
+      // 웨어러블 전송(기존 로직 유지)
+      await WearBridge.sendFishingPoints(parsed.map((p) {
+        return {
+          'name': p.name,
+          'point_nm': p.name,
+          'dpwt': p.depthRange,
+          'material': '',
+          'tide_time': '',
+          'target': p.species.join(','),
+          'lat': p.lat,
+          'lon': p.lng,
+          'point_dt': '',
+        };
       }).toList());
-    }
-    catch (e) {
+    } catch (e) {
       setState(() {
         _error = '데이터를 불러오지 못했어요. ${e.toString()}';
         _loading = false;
@@ -87,7 +131,8 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   }
 
   T? _pick<T>(Map<String, dynamic> j, List<String> cands) {
-    String norm(String s) => s.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '').toLowerCase();
+    String norm(String s) =>
+        s.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '').toLowerCase();
     final nk = {for (final k in j.keys) norm(k): k};
     for (final c in cands) {
       final key = nk[norm(c)];
@@ -110,8 +155,10 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     final dLat = _deg2rad(lat2 - lat1);
     final dLon = _deg2rad(lon2 - lon1);
     final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_deg2rad(lat1)) * math.cos(_deg2rad(lat2)) *
-            math.sin(dLon / 2) * math.sin(dLon / 2);
+        math.cos(_deg2rad(lat1)) *
+            math.cos(_deg2rad(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return R * c;
   }
@@ -132,7 +179,11 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
     final lat = double.tryParse(latStr) ?? 0.0;
     final lon = double.tryParse(lonStr) ?? 0.0;
-    final dist = _haversineKm(_originLat, _originLon, lat, lon);
+
+    // ✅ 거리 계산 기준: 내 위치가 있으면 내 위치, 없으면 기본값
+    final baseLat = _myLat ?? _defaultLat;
+    final baseLon = _myLon ?? _defaultLon;
+    final dist = _haversineKm(baseLat, baseLon, lat, lon);
 
     return FishingPoint(
       id: '${lat}_${lon}_${name.hashCode}',
@@ -162,7 +213,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchPoints,
+            onPressed: _init, // ✅ 위치 재확인 + 목록 재호출
             tooltip: '새로고침',
           )
         ],
@@ -181,7 +232,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
                     Text(_error!, textAlign: TextAlign.center),
                     const SizedBox(height: 12),
                     FilledButton(
-                      onPressed: _fetchPoints,
+                      onPressed: _init,
                       child: const Text('다시 시도'),
                     ),
                   ],
@@ -197,7 +248,8 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
                 if (index == 0) {
                   return _FilterRow(
                     incheonSelected: _incheonSelected,
-                    onTap: () => setState(() => _incheonSelected = !_incheonSelected),
+                    onTap: () =>
+                        setState(() => _incheonSelected = !_incheonSelected),
                   );
                 }
                 if (index == 1) {
@@ -264,8 +316,7 @@ class _ChipButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = selected ? const Color(0xFFEAF4FF) : Colors.white;
-    final border =
-    selected ? const Color(0xFFB6DAFF) : const Color(0xFFE4E6EB);
+    final border = selected ? const Color(0xFFB6DAFF) : const Color(0xFFE4E6EB);
     final text = selected ? const Color(0xFF2A79FF) : Colors.black87;
 
     return Material(
@@ -280,9 +331,10 @@ class _ChipButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: border),
           ),
-          child: Text(label,
-              style:
-              TextStyle(color: text, fontWeight: FontWeight.w700)),
+          child: Text(
+            label,
+            style: TextStyle(color: text, fontWeight: FontWeight.w700),
+          ),
         ),
       ),
     );
