@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../../wear_bridge.dart';
 import '../../env.dart';
 import 'region_picker.dart';
+import 'package:geolocator/geolocator.dart';
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -14,8 +15,52 @@ class SeaWeatherPage extends StatefulWidget {
 }
 
 class _SeaWeatherPageState extends State<SeaWeatherPage> {
+
   String tab = '파도';
-  RegionItem _region = kRegions.firstWhere((r) => r.name == '부산광역시');
+  RegionItem _region = RegionItem('서울특별시', _seoulLat, _seoulLon);
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+  Future<void> _init() async {
+    final picked = await _resolveCurrentOrSeoul();
+    if (!mounted) return;
+    setState(() => _region = picked);
+  }
+  static const _seoulLat = 37.5665;
+  static const _seoulLon = 126.9780;
+  Future<RegionItem> _resolveCurrentOrSeoul() async {
+    try {
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
+      if (!serviceOn) {
+        return RegionItem('서울특별시', _seoulLat, _seoulLon);
+      }
+
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        return RegionItem('서울특별시', _seoulLat, _seoulLon);
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 6),
+      );
+
+      final lat = pos.latitude, lon = pos.longitude;
+      if (lat.isNaN || lon.isNaN) {
+        return RegionItem('서울특별시', _seoulLat, _seoulLon);
+      }
+      // 이름은 임시로 ‘현재 위치’ 표기 (원하면 역지오코딩해서 행정명 넣어도 됨)
+      return RegionItem('현재 위치', lat, lon);
+    } catch (_) {
+      return RegionItem('서울특별시', _seoulLat, _seoulLon);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +80,7 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${_region.name} 앞바다',
+                Text('${_region.name} ',
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w700)),
                 TextButton(
