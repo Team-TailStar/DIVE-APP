@@ -212,8 +212,8 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _init, // ✅ 위치 재확인 + 목록 재호출
+            icon: const Icon(Icons.my_location),
+            onPressed: _init,
             tooltip: '새로고침',
           )
         ],
