@@ -398,7 +398,7 @@ class _TidePageState extends State<TidePage> {
           actions: [
             IconButton(
               tooltip: '새로고침',
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.my_location),
               onPressed: _init,
             ),
           ],
