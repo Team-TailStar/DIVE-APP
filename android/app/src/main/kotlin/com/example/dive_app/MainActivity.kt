@@ -9,6 +9,9 @@ import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.location.LocationServices
 import org.json.JSONObject
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import com.example.dive_app.api.AirKoreaApi
 
 // 🔹 Flutter와 통신하기 위한 import
 import io.flutter.plugin.common.MethodChannel
@@ -46,17 +49,17 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         when (path) {
             "/request_air_quality" -> {
                 Log.d("PhoneMsg", "📩 워치에서 미세먼지 요청 수신")
-                val airQualityJson = JSONObject().apply {
-                    put("no2Value", "0.009")
-                    put("o3Value", "0.023")
-                    put("pm10Value", "15")
-                    put("pm25Value", "7")
-                    put("o3Grade", "1")
-                    put("no2Grade", "2")
-                    put("pm10Grade", "3")
-                    put("pm25Grade", "4")
+                lifecycleScope.launch {
+                    try {
+                        val data = AirKoreaApi.fetchAirQualityByLocation(context)
+                        if (data != null) {
+                            replyToWatch("/response_air_quality", data.toString())
+                            Log.d("PhoneMsg", " 대기질 응답: ${data}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("PhoneMsg", "⚠️ 대기질 조회 실패: ${e.message}")
+                    }
                 }
-                replyToWatch("/response_air_quality", airQualityJson.toString())
             }
 
             "/request_location" -> {
@@ -175,7 +178,7 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                     Wearable.getMessageClient(this)
                         .sendMessage(node.id, path, message.toByteArray())
                         .addOnSuccessListener {
-                            Log.d("PhoneMsg", "📨 워치로 응답 전송 성공 → $path")
+                            Log.d("PhoneMsg", "📨 워치로 응답 전송 성공 → $path , data=$message")
                         }
                         .addOnFailureListener { e ->
                             Log.e("PhoneMsg", "⚠️ 응답 전송 실패: ${e.message}")
