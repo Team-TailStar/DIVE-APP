@@ -6,6 +6,7 @@ import '../../wear_bridge.dart';
 import '../../env.dart';
 import 'region_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' as geo;
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -55,8 +56,9 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
       if (lat.isNaN || lon.isNaN) {
         return RegionItem('서울특별시', _seoulLat, _seoulLon);
       }
-      // 이름은 임시로 ‘현재 위치’ 표기 (원하면 역지오코딩해서 행정명 넣어도 됨)
-      return RegionItem('현재 위치', lat, lon);
+
+      final name = await _reverseRegionName(lat, lon);
+      return RegionItem(name, lat, lon);
     } catch (_) {
       return RegionItem('서울특별시', _seoulLat, _seoulLon);
     }
@@ -72,6 +74,13 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
         centerTitle: true,
         title: const Text('바다 날씨',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+        actions: [
+          IconButton(
+            tooltip: '현재 위치로 새로고침',
+            icon: const Icon(Icons.my_location),
+            onPressed: _init, // ← 현재 페이지의 _init 호출
+          ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -1250,6 +1259,33 @@ class _MiniLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MiniLinePainter oldDelegate) =>
       oldDelegate.secondary != secondary;
+}
+Future<String> _reverseRegionName(double lat, double lon) async {
+  try {
+    final list = await geo.placemarkFromCoordinates(lat, lon,
+        localeIdentifier: 'ko_KR');
+    if (list.isEmpty) return '현재 위치';
+
+    final p = list.first;
+
+    final siDo = (p.administrativeArea ?? '').trim();
+    final siGunGu = (p.locality ?? p.subAdministrativeArea ?? '').trim();
+
+    if (siDo.isNotEmpty && siGunGu.isNotEmpty) {
+      return '$siDo $siGunGu';
+    } else if (siDo.isNotEmpty) {
+      return siDo;
+    } else if (siGunGu.isNotEmpty) {
+      return siGunGu;
+    }
+
+    final dong = (p.subLocality ?? p.thoroughfare ?? '').trim();
+    if (dong.isNotEmpty) return dong;
+
+    return '현재 위치';
+  } catch (_) {
+    return '현재 위치';
+  }
 }
 
 DateTime _kDateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
