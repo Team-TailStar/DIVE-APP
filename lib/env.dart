@@ -3,6 +3,11 @@ import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 
 class Env {
+  static late final String AIRKOREA_SERVICE_KEY;
+  static late final String API_BASE_URL;
+  static late final String BADA_SERVICE_KEY;
+  static late final bool   USE_TIDE_MOCK;
+
   static bool _loaded = false;
   static Future<void>? _loading;
 
@@ -28,7 +33,9 @@ class Env {
     bool _b(dynamic v, {bool or = false}) {
       if (v is bool) return v;
       final s = v?.toString().trim().toLowerCase();
-      return s == 'true' ? true : s == 'false' ? false : or;
+      if (s == 'true') return true;
+      if (s == 'false') return false;
+      return or;
     }
 
     AIRKOREA_SERVICE_KEY = _s(j['AIRKOREA_SERVICE_KEY']);
@@ -40,5 +47,6 @@ class Env {
     _loaded = true;
   }
 
+  // 어디서든 “불러와져 있지 않으면 로드”
   static Future<void> ensureLoaded() => _loaded ? Future.value() : load();
 }
