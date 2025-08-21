@@ -16,7 +16,7 @@ class Env {
   static String API_BASE_URL = '';
   static String BADA_SERVICE_KEY = '';
   static bool   USE_TIDE_MOCK = false;
-  static String KAKAO_REST_KEY = '';
+  static String IMAGE_BASE_URL = '';
 
   static Future<void> load() async {
     if (_loaded) return;
@@ -40,7 +40,7 @@ class Env {
     API_BASE_URL         = _s(j['API_BASE_URL']);
     BADA_SERVICE_KEY     = _s(j['BADA_SERVICE_KEY']);
     USE_TIDE_MOCK        = _b(j['USE_TIDE_MOCK']);
-    KAKAO_REST_KEY       = _s(j['KAKAO_REST_KEY']);
+    IMAGE_BASE_URL       = _s(j['IMAGE_BASE_URL']);
 
 
     _loaded = true;
