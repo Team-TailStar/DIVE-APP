@@ -16,9 +16,14 @@ object TyphoonApi {
     private const val BASE_URL = "http://apis.data.go.kr/1360000/TyphoonInfoService"
     private const val ENDPOINT = "getTyphoonInfo"
 
+    // Put your key into BuildConfig via build.gradle(.kts) as DATA_GO_KR_SERVICE_KEY
     private val serviceKey: String = BuildConfig.DATA_GO_KR_SERVICE_KEY
     private val ymdFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
 
+    /**
+     * Fetch typhoon advisories in [from, to] (inclusive).
+     * Returns JSONArray of items (possibly empty).
+     */
     suspend fun fetchTyphoonInfo(
         from: LocalDate,
         to: LocalDate,
@@ -29,16 +34,17 @@ object TyphoonApi {
         val fromStr = ymdFormatter.format(from)
         val toStr = ymdFormatter.format(to)
 
+        // Avoid double-encoding: if the key already has %2B/%2F/%3D, use as-is
         val encodedKey = if (looksEncoded(serviceKey)) serviceKey
         else URLEncoder.encode(serviceKey, "UTF-8")
 
         val query = buildString {
-            append("serviceKey=").append(encodedKey)
+            append("ServiceKey=").append(encodedKey)        // NOTE: capital S, K
             append("&pageNo=").append(pageNo)
             append("&numOfRows=").append(numOfRows)
-            append("&dataType=").append(dataType)
-            append("&fromTmFc=").append(fromStr)
-            append("&toTmFc=").append(toStr)
+            append("&dataType=").append(dataType)           // JSON or XML
+            append("&fromTmFc=").append(fromStr)            // YYYYMMDD
+            append("&toTmFc=").append(toStr)                // YYYYMMDD
         }
 
         val urlStr = "$BASE_URL/$ENDPOINT?$query"
@@ -62,27 +68,39 @@ object TyphoonApi {
                 throw RuntimeException("Typhoon API HTTP $status: $body")
             }
 
-            if (dataType.equals("JSON", ignoreCase = true)) {
-                val root = JSONObject(body)
-                val items = root
-                    .optJSONObject("response")
-                    ?.optJSONObject("body")
-                    ?.optJSONObject("items")
-                    ?.opt("item")
+            // ⛔ data.go.kr returns XML for errors even if you asked for JSON
+            if (body.trimStart().startsWith("<")) {
+                val code = Regex("<resultCode>(.*?)</resultCode>")
+                    .find(body)?.groupValues?.get(1) ?: "UNKNOWN"
+                val msg = Regex("<resultMsg>(.*?)</resultMsg>")
+                    .find(body)?.groupValues?.get(1) ?: "UNKNOWN"
+                Log.e("TyphoonApi", "API XML error: code=$code, msg=$msg")
+                throw RuntimeException("OpenAPI $code: $msg")
+            }
 
-                when (items) {
-                    is JSONArray -> items
-                    is JSONObject -> JSONArray().put(items)
-                    else -> JSONArray()
-                }
-            } else {
+            if (!dataType.equals("JSON", ignoreCase = true)) {
                 throw UnsupportedOperationException("XML parsing not implemented. Use dataType=JSON.")
+            }
+
+            // JSON happy path
+            val root = JSONObject(body)
+            val items = root
+                .optJSONObject("response")
+                ?.optJSONObject("body")
+                ?.optJSONObject("items")
+                ?.opt("item")
+
+            return@withContext when (items) {
+                is JSONArray -> items
+                is JSONObject -> JSONArray().put(items)   // API sometimes returns a single object
+                else -> JSONArray()                       // totalCount == 0
             }
         } finally {
             conn?.disconnect()
         }
     }
 
+    /** Convenience: last [days] days (default 60). */
     suspend fun fetchRecent(days: Long = 60): JSONArray {
         val today = LocalDate.now()
         val from = today.minusDays(days)

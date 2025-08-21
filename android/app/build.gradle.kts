@@ -26,6 +26,7 @@ android {
         buildConfigField("String", "BADA_SERVICE_KEY", "\"$bada\"")
         buildConfigField("String", "DATA_GO_KR_SERVICE_KEY", "\"$typhoon\"")
 
+
         minSdk = 23
         targetSdk = 35
 
