@@ -11,7 +11,6 @@ import '../../models/fishing_point.dart';
 import '../../wear_bridge.dart';
 import '../../env.dart';
 
-
 class FishingPointMainPage extends StatefulWidget {
   const FishingPointMainPage({super.key});
 
@@ -20,22 +19,13 @@ class FishingPointMainPage extends StatefulWidget {
 }
 
 class _FishingPointMainPageState extends State<FishingPointMainPage> {
-
-
+  String _regionTitle = '낚시포인트';
   double? _myLat;
   double? _myLon;
 
   // 기본 좌표(부산 대략)
   static const double _defaultLat = 35.1151;
   static const double _defaultLon = 129.0415;
-
-  // 바다별 중심 좌표(간단한 대표지점)
-  static const Map<SeaArea, (double, double)> _seaCenters = {
-    SeaArea.west: (37.4563, 126.7052), // 인천
-    SeaArea.south: (35.1796, 129.0756), // 부산 시내
-    SeaArea.east: (37.7519, 128.8761), // 강릉
-    SeaArea.jeju: (33.4996, 126.5312), // 제주
-  };
 
   Uri get _apiUri => Uri.parse(
     '${Env.API_BASE_URL}/point?lat=${_myLat ?? _defaultLat}&lon=${_myLon ?? _defaultLon}&key=${Env.BADA_SERVICE_KEY}',
@@ -44,15 +34,6 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   static const _fallbackImg =
       'https://images.unsplash.com/photo-1508182311256-e3f6b475a2e4?auto=format&fit=crop&w=1080&q=80';
 
-  // 선택 상태
-  SeaArea _selectedSea = SeaArea.south; // 초기: 남해(부산)
-  String? _selectedRegion; // 예) '부산광역시 영도구'
-  String? _selectedSpot; // 예) '대항선착장'
-
-  // (옵션) 반경 필터 참고용
-  dynamic _lastChosenSeaSpot;
-  double radiusKm = 0; // 0이면 미적용
-
   bool _loading = true;
   String? _error;
   List<FishingPoint> _points = const [];
@@ -60,8 +41,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   @override
   void initState() {
     super.initState();
-
-    _init(); 
+    _init();
   }
 
   Future<void> _init() async {
@@ -87,7 +67,6 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
     await _fetchPoints();
   }
-
 
   Future<void> _ensureLocationPermission() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -118,9 +97,8 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       final list = (body['fishing_point'] as List).cast<Map<String, dynamic>>();
 
-      final parsed = list.map<FishingPoint>((j) => _toModel(j)).toList();
-      parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
-
+      final parsed = list.map<FishingPoint>((j) => _toModel(j)).toList()
+        ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
 
       setState(() {
         _points = parsed;
@@ -137,7 +115,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
         'tide_time': '',
         'target': p.species.join(','),
         'lat': p.lat,
-        'lon': p.lng,
+        'lon': p.lng, // 모델이 lon이면 여기를 p.lon 로 바꿔
         'point_dt': '',
       })
           .toList());
@@ -184,17 +162,12 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
   double _deg2rad(double d) => d * math.pi / 180.0;
 
+  // 절대 URL만 허용, 아니면 fallback
   String resolveImageUrl(String? raw, {required String fallback}) {
     final p = raw?.trim() ?? '';
     if (p.isEmpty) return fallback;
     if (p.startsWith('http://') || p.startsWith('https://')) return p;
-
-    final base = Env.IMAGE_BASE_URL.trim();
-    if (base.isEmpty) return fallback;
-
-    final sep1 = base.endsWith('/') ? '' : '/';
-    final sep2 = p.startsWith('/') ? '' : '/'; // ✅ 앞/뒤 슬래시 중복 방지
-    return '$base$sep1$sep2$p';
+    return fallback;
   }
 
   FishingPoint _toModel(Map<String, dynamic> j) {
@@ -212,147 +185,30 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     final lat = double.tryParse(latStr) ?? 0.0;
     final lon = double.tryParse(lonStr) ?? 0.0;
 
-    // ✅ 거리 계산 기준: 내 위치가 있으면 내 위치, 없으면 기본값
+    // 거리 계산 기준: 현재 위치 있으면 그걸로, 아니면 기본값
     final baseLat = _myLat ?? _defaultLat;
     final baseLon = _myLon ?? _defaultLon;
     final dist = _haversineKm(baseLat, baseLon, lat, lon);
 
     return FishingPoint(
-        id: '${lat}_${lon}_${name.hashCode}',
-        name: name,
-        location: addr,
-        distanceKm: dist,
-        depthRange: dpwt,
-        species: _parseSpecies(target),
-    imageUrl: imageUrl,
-    lat: lon,
+      id: '${lat}_${lon}_${name.hashCode}',
+      name: name,
+      location: addr,
+      distanceKm: dist,
+      depthRange: dpwt,
+      species: _parseSpecies(target),
+      imageUrl: imageUrl,
+      lat: lat, // 위도
+      lng: lon, // 경도 (모델 필드명이 lon이면 여기/아래 모두 lon으로 교체)
     );
   }
-
-  // ---------- Region/Spot 유틸 ----------
-
-  String _normalizeRegion(String addr) {
-    if (addr.trim().isEmpty) return '';
-    final parts = addr.split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '';
-    if (parts.length == 1) return parts.first;
-    return '${parts[0]} ${parts[1]}';
-  }
-
-  List<String> get _availableRegions {
-    final set = <String>{};
-    for (final p in _points) {
-      final reg = _normalizeRegion(p.location);
-      if (reg.isNotEmpty) set.add(reg);
-    }
-    final list = set.toList()..sort((a, b) => a.compareTo(b));
-    return list;
-  }
-
-  List<String> _spotsForRegion(String region) {
-    final list = _points
-        .where((p) => _normalizeRegion(p.location) == region)
-        .map((p) => p.name.trim())
-        .where((s) => s.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort((a, b) => a.compareTo(b));
-    return list;
-  }
-
-  // ---------- Bottom Sheet ----------
-
-  Future<void> _openSeaSheet() async {
-    final ret = await showModalBottomSheet<SeaArea>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: false,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return _PickerSheet<SeaArea>(
-          title: '바다 선택',
-          options: SeaArea.values,
-          labelOf: (SeaArea s) => s.label,
-          selected: _selectedSea,
-        );
-      },
-    );
-    if (ret != null && ret != _selectedSea) {
-      setState(() {
-        _selectedSea = ret;
-        _selectedRegion = null;
-        _selectedSpot = null;
-        _setCenterBySea(ret); // ✅ 기준 좌표 변경
-      });
-      await _fetchPoints();   // ✅ 좌표 바뀌었으니 재호출
-    }
-  }
-
-  Future<void> _openRegionSheet() async {
-    final options = _availableRegions;
-    final ret = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return _PickerSheet<String>(
-          title: '지역(도/시) 선택',
-          options: options,
-          labelOf: (s) => s,
-          selected: _selectedRegion,
-        );
-      },
-    );
-    if (ret != null) {
-      setState(() {
-        _selectedRegion = ret;
-        _selectedSpot = null;
-      });
-    }
-  }
-
-  Future<void> _openSpotSheet() async {
-    if (_selectedRegion == null) return;
-    final options = _spotsForRegion(_selectedRegion!);
-    final ret = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return _PickerSheet<String>(
-          title: '스팟 선택',
-          options: options,
-          labelOf: (s) => s,
-          selected: _selectedSpot,
-        );
-      },
-    );
-    if (ret != null) {
-      setState(() {
-        _selectedSpot = ret;
-      });
-    }
-  }
-
-  // ---------- Build ----------
 
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      extendBodyBehindAppBar: true, // 배경을 앱바 뒤까지
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -360,19 +216,13 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
         centerTitle: true,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          _regionTitle,
+          _regionTitle, // '내 위치' or '낚시포인트'
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w800,
             color: Colors.white,
           ),
           overflow: TextOverflow.ellipsis,
-        ),
-        leadingWidth: 80,
-        leading: IconButton(
-          tooltip: '위치 선택',
-          icon: const Icon(Icons.location_on_sharp, color: Color(0xFFFF4151)),
-          onPressed: _pickRegion,
         ),
         actions: [
           IconButton(
@@ -421,23 +271,12 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                  itemCount: _points.length + 1, // 1 = 섹션 타이틀만
+                  itemCount: _points.length + 1, // 1 = 상단 여백용
                   separatorBuilder: (_, __) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     if (index == 0) {
-                      return const Padding(
-                        padding: EdgeInsets.only(top: 4, bottom: 4),
-                        // child: Text(
-                        //   '낚시 포인트 목록',
-                        //   style: TextStyle(
-                        //     fontSize: 14,
-                        //     color: Colors.white,
-                        //     fontWeight: FontWeight.w700,
-                        //   ),
-                        // ),
-                      );
+                      return const SizedBox(height: 0);
                     }
-
                     final item = _points[index - 1];
                     return _FishingPointCard(
                       data: item,
@@ -453,224 +292,15 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
                 );
               },
             ),
-
           ),
         ),
       ),
       bottomNavigationBar: const AppBottomNav(currentIndex: 3),
     );
   }
-
-  /// 리스트 필터(지역/스팟 + (옵션)반경)
-  List<FishingPoint> _applyUiFilters(List<FishingPoint> src) {
-    Iterable<FishingPoint> it = src;
-
-    if (_selectedRegion != null) {
-      it = it.where(
-              (p) => _normalizeRegion(p.location) == (_selectedRegion ?? ''));
-    }
-    if (_selectedSpot != null) {
-      it = it.where((p) => p.name.trim() == _selectedSpot);
-    }
-
-    final hasCenter = _lastChosenSeaSpot != null &&
-        (_lastChosenSeaSpot.lat != null) &&
-        (_lastChosenSeaSpot.lon != null);
-
-    if (hasCenter && radiusKm > 0) {
-      final double spotLat = (_lastChosenSeaSpot.lat as num).toDouble();
-      final double spotLon = (_lastChosenSeaSpot.lon as num).toDouble();
-
-      it = it.where((p) {
-        final double pointLat = (p.lat as num).toDouble();
-        final double pointLon = (p.lng as num).toDouble();
-        return _haversineKm(spotLat, spotLon, pointLat, pointLon) <= radiusKm;
-      });
-    }
-
-    return it.toList();
-  }
-
-  String _breadcrumbText() {
-    final sea = _selectedSea.label;
-    final region = _selectedRegion;
-    final spot = _selectedSpot;
-    final parts = ['총 포인트 목록 – $sea'];
-    if (region != null) parts.add(region);
-    if (spot != null) parts.add(spot);
-    return parts.join(' > ');
-  }
 }
 
 // ---------- Widgets ----------
-
-class _TopFilters extends StatelessWidget {
-  const _TopFilters({
-    required this.seaLabel,
-    required this.regionLabel,
-    required this.spotLabel,
-    required this.onTapSea,
-    required this.onTapRegion,
-    required this.onTapSpot,
-  });
-
-  final String seaLabel;
-  final String regionLabel;
-  final String spotLabel;
-  final VoidCallback onTapSea;
-  final VoidCallback onTapRegion;
-  final VoidCallback onTapSpot;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _DropChip(label: seaLabel, onTap: onTapSea),
-          const SizedBox(width: 8),
-          _DropChip(label: regionLabel, onTap: onTapRegion),
-          const SizedBox(width: 8),
-          _DropChip(label: spotLabel, onTap: onTapSpot),
-        ],
-      ),
-    );
-  }
-}
-
-class _DropChip extends StatelessWidget {
-  const _DropChip({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF4F7FC),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE1E6EF)),
-          ),
-          child: Row(
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, color: Colors.black87)),
-              const SizedBox(width: 6),
-              const Icon(Icons.expand_more, size: 18, color: Colors.black54),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PickerSheet<T> extends StatelessWidget {
-  const _PickerSheet({
-    required this.title,
-    required this.options,
-    required this.labelOf,
-    this.selected,
-  });
-
-  final String title;
-  final List<T> options;
-  final String Function(T) labelOf;
-  final T? selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding:
-      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 44,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE3E7EE),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final o in options)
-                    _SelectableChip(
-                      label: labelOf(o),
-                      selected: selected != null && selected == o,
-                      onTap: () => Navigator.of(context).pop(o),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectableChip extends StatelessWidget {
-  const _SelectableChip(
-      {required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = selected ? const Color(0xFFEAF4FF) : Colors.white;
-    final border = selected ? const Color(0xFFB6DAFF) : const Color(0xFFE4E6EB);
-    final text = selected ? const Color(0xFF2A79FF) : Colors.black87;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: border),
-          ),
-
-          child: Text(
-            label,
-            style: TextStyle(color: text, fontWeight: FontWeight.w700),
-
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _FishingPointCard extends StatelessWidget {
   const _FishingPointCard({required this.data, required this.onTapDetail});
