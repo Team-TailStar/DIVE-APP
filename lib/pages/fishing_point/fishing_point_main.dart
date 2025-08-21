@@ -21,7 +21,6 @@ class FishingPointMainPage extends StatefulWidget {
 }
 
 class _FishingPointMainPageState extends State<FishingPointMainPage> {
-  // ✅ 현재/선택 위치
   double? _myLat;
   double? _myLon;
   String _regionTitle = '낚시포인트'; // 앱바 타이틀에 표기
@@ -36,6 +35,10 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
   static const _fallbackImg =
       'https://images.unsplash.com/photo-1508182311256-e3f6b475a2e4?auto=format&fit=crop&w=1080&q=80';
+
+  SeaArea _selectedSea = SeaArea.south; // 초기: 남해(부산)
+  String? _selectedRegion; // 예) '부산광역시 영도구'
+  String? _selectedSpot;   // 예) '대항선착장'
 
   bool _loading = true;
   String? _error;
@@ -113,7 +116,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       final list =
       (body['fishing_point'] as List).cast<Map<String, dynamic>>();
 
-      final parsed = list.map<FishingPoint>((j) => _toModel(j)).toList();
+      parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
 
       // ✅ 내/선택 위치 기준 정렬
       parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
@@ -319,6 +322,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
                 );
               },
             ),
+
           ),
         ),
       ),

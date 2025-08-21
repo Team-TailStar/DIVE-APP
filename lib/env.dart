@@ -3,15 +3,9 @@ import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 
 class Env {
-  static late final String AIRKOREA_SERVICE_KEY;
-  static late final String API_BASE_URL;
-  static late final String BADA_SERVICE_KEY;
-  static late final bool   USE_TIDE_MOCK;
-
   static bool _loaded = false;
   static Future<void>? _loading;
 
-  // ❌ late 제거, 기본값 부여
   static String AIRKOREA_SERVICE_KEY = '';
   static String API_BASE_URL = '';
   static String BADA_SERVICE_KEY = '';
@@ -43,6 +37,8 @@ class Env {
     BADA_SERVICE_KEY     = _s(j['BADA_SERVICE_KEY']);
     USE_TIDE_MOCK        = _b(j['USE_TIDE_MOCK']);
     KAKAO_REST_KEY       = _s(j['KAKAO_REST_KEY']);
+    IMAGE_BASE_URL       = _s(j['IMAGE_BASE_URL']);
+    assert(API_BASE_URL.isNotEmpty, 'API_BASE_URL is required in assets/env.json');
 
     _loaded = true;
   }

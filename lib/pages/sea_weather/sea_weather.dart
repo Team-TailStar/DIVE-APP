@@ -300,9 +300,11 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
       );
     }
     if (error != null) {
+
       return const AqCard(
         padding: EdgeInsets.all(16),
         child: Text('불러오기 실패'),
+
       );
     }
     if (waves.isEmpty) {
@@ -388,6 +390,7 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
             ],
           ),
         ),
+
         const SizedBox(height: 16),
 
         // 리스트 헤더
@@ -516,9 +519,11 @@ class _TempSectionState extends State<_TempSection> {
       );
     }
     if (error != null) {
+
       return const AqCard(
         padding: EdgeInsets.all(16),
         child: Text('불러오기 실패'),
+
       );
 
     }
@@ -588,6 +593,7 @@ class _TempSectionState extends State<_TempSection> {
                     ),
                     child: const _MiniLineChart(gridColor: Color(0x332E5BFF),lineColor: Color(0xFF2E5BFF),),
                   ),
+
                 );
               }),
 
@@ -606,6 +612,7 @@ class _TempSectionState extends State<_TempSection> {
                   child: const Text(
                     '인근 바다와 수온 비교해보기',
                     style: TextStyle(decoration: TextDecoration.underline),
+
                   ),
                 ),
               ),
@@ -820,6 +827,7 @@ class _ForecastBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     final th = Theme.of(context).extension<AqCardTheme>() ?? AqCardTheme.light();
 
     return AqCard(
@@ -1028,7 +1036,9 @@ class _CompareRowWhite extends StatelessWidget {
   final String temp;
   final String dist;
 
+
   const _CompareRowWhite({required this.place, required this.trendUp, required this.temp, required this.dist});
+
 
   @override
   Widget build(BuildContext context) {
@@ -1393,7 +1403,9 @@ class SeaStationTemp {
   final double tempC;
   final double? distanceKm;
 
+
   SeaStationTemp({required this.name, required this.obsTime, required this.tempC, this.distanceKm});
+
 
   static String _norm(String k) {
     final r = RegExp(r'[A-Za-z_]');
@@ -1421,14 +1433,18 @@ class SeaStationTemp {
     final obsTime = DateTime.tryParse(t.replaceFirst(' ', 'T')) ?? DateTime.now();
 
     final rawTemp = _pick(j, [
+
       'obs_wt', 'sst', 'sea_temperature', 'seatemperature', 'water_temp', 'watertemp', 'temp_c', 'temp',
+
     ]);
     final tempC = _toDouble(rawTemp);
 
     final dt = (j['obs_dt'] ?? j['distance'] ?? '').toString();
     final distanceKm = double.tryParse(dt.replaceAll('km', '').replaceAll('㎞', '').trim());
 
+
     return SeaStationTemp(name: name, obsTime: obsTime, tempC: tempC, distanceKm: distanceKm);
+
   }
 }
 
