@@ -135,8 +135,13 @@ class _FishingPointDetailPageState extends State<FishingPointDetailPage> {
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
         elevation: 0,
-        title: const Text('낚시포인트 상세페이지'),
         centerTitle: true,
+        title: Text(
+          widget.point.name.isNotEmpty ? widget.point.name : '낚시포인트',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,   // 길면 … 처리
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
