@@ -19,10 +19,10 @@ import com.example.dive_app.api.WeatherApi
 import com.example.dive_app.api.TideApi
 import com.example.dive_app.api.FishingPointApi
 import com.example.dive_app.api.TyphoonApi
-import com.example.dive_app.api.TyphoonAlertManager
+import com.example.dive_app.manager.TyphoonAlertManager
+import com.example.dive_app.manager.WeatherAlertManager
 import io.flutter.plugin.common.MethodChannel
 import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import java.util.concurrent.TimeUnit
 import androidx.work.WorkManager
@@ -34,6 +34,7 @@ import kotlin.coroutines.resume
 import com.google.android.gms.location.Priority
 import androidx.core.app.NotificationCompat
 import com.example.dive_app.worker.TyphoonWorker
+import com.example.dive_app.worker.WeatherWorker
 import com.example.dive_app.util.getCurrentLocation
 
 class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener {
@@ -53,10 +54,12 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         }
 
         // 🚨 테스트 알림 (워치에서 알림 뜨는지 확인용)
-        TyphoonAlertManager.sendTestAlert(this@MainActivity)
+        //TyphoonAlertManager.sendTestAlert(this@MainActivity)
+        WeatherAlertManager.sendTestAlert(this@MainActivity)
 
         // 3시간마다 주기 실행
         scheduleTyphoonWorker(this)
+        scheduleWeatherWorker(this)
     }
 
     private fun scheduleTyphoonWorker(context: Context) {
@@ -64,6 +67,16 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "TyphoonCheck",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
+    }
+
+    private fun scheduleWeatherWorker(context: Context) {
+        val request = PeriodicWorkRequestBuilder<WeatherWorker>(1, TimeUnit.HOURS).build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "WeatherCheck",
             ExistingPeriodicWorkPolicy.UPDATE,
             request
         )
