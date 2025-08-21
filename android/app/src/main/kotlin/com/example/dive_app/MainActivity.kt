@@ -19,7 +19,22 @@ import com.example.dive_app.api.WeatherApi
 import com.example.dive_app.api.TideApi
 import com.example.dive_app.api.FishingPointApi
 import com.example.dive_app.api.TyphoonApi
+import com.example.dive_app.api.TyphoonAlertManager
 import io.flutter.plugin.common.MethodChannel
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import java.util.concurrent.TimeUnit
+import androidx.work.WorkManager
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
+import android.content.Context
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import com.google.android.gms.location.Priority
+import androidx.core.app.NotificationCompat
+import com.example.dive_app.worker.TyphoonWorker
+import com.example.dive_app.util.getCurrentLocation
 
 class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener {
 
@@ -27,6 +42,31 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 앱 시작 시 1회 실행
+        lifecycleScope.launch(Dispatchers.IO) {
+            val coords = getCurrentLocation(this@MainActivity)
+            if (coords != null) {
+                val (lat, lon) = coords
+                TyphoonAlertManager.checkTyphoonAlert(this@MainActivity, lat, lon)
+            }
+        }
+
+        // 🚨 테스트 알림 (워치에서 알림 뜨는지 확인용)
+        TyphoonAlertManager.sendTestAlert(this@MainActivity)
+
+        // 3시간마다 주기 실행
+        scheduleTyphoonWorker(this)
+    }
+
+    private fun scheduleTyphoonWorker(context: Context) {
+        val request = PeriodicWorkRequestBuilder<TyphoonWorker>(30, TimeUnit.MINUTES).build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "TyphoonCheck",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
     }
 
     // ✅ keep a single onResume
@@ -113,30 +153,6 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                     }
                 }
             }
-
-            "/request_typhoon" -> {
-                Log.d("PhoneMsg", "📩 워치에서 태풍 정보 요청 수신")
-                lifecycleScope.launch(Dispatchers.IO) {
-                    try {
-                        val to = LocalDate.now()
-                        val from = to.minusDays(30)
-                        val items: JSONArray = TyphoonApi.fetchTyphoonInfo(from, to, numOfRows = 100)
-                        val payload = JSONObject().apply { put("items", items) }
-
-                        replyToWatch("/response_typhoon", payload.toString())
-                        // concise Logcat
-                        Log.d("TyphoonTest", "✅ count=${items.length()}")
-                        if (items.length() > 0) {
-                            Log.d("TyphoonTest", "first=${items.getJSONObject(0)}")
-                        }
-                    } catch (e: Exception) {
-                        Log.e("TyphoonTest", "❌ 태풍 조회 실패: ${e.message}")
-                        val err = JSONObject().apply { put("error", e.message ?: "unknown error") }
-                        replyToWatch("/response_typhoon", err.toString())
-                    }
-                }
-            }
-
             "/response_heart_rate" -> {
                 Log.d("PhoneMsg", "📩 워치에서 심박수 수신")
                 try {
