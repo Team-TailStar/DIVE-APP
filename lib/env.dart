@@ -17,6 +17,7 @@ class Env {
   static String BADA_SERVICE_KEY = '';
   static bool   USE_TIDE_MOCK = false;
   static String IMAGE_BASE_URL = '';
+  static String BDAD_TIME_IMAGE_URL = '';
 
   static Future<void> load() async {
     if (_loaded) return;
@@ -41,8 +42,7 @@ class Env {
     BADA_SERVICE_KEY     = _s(j['BADA_SERVICE_KEY']);
     USE_TIDE_MOCK        = _b(j['USE_TIDE_MOCK']);
     IMAGE_BASE_URL       = _s(j['IMAGE_BASE_URL']);
-
-
+    BDAD_TIME_IMAGE_URL  = _s(j['BDAD_TIME_IMAGE_URL']);
     _loaded = true;
   }
 

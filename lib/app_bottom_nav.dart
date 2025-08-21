@@ -19,44 +19,67 @@ class AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      type: BottomNavigationBarType.fixed,
-      onTap: (i) async {
-        if (i == currentIndex) return;
+    // 파란색 계열 통일
+    const blue = Colors.blue;
 
-        switch (i) {
-          case 0:
-            final pos = await _getPosition(context);
-            if (pos == null) return;
-            _goReplace(context, WeatherPage(lat: pos.latitude, lon: pos.longitude));
-            break;
+    return Theme(
+      data: Theme.of(context).copyWith(
+        // 탭 리플/하이라이트도 파란색으로
+        splashColor: blue.withOpacity(0.20),
+        highlightColor: blue.withOpacity(0.10),
+        colorScheme: Theme.of(context).colorScheme.copyWith(
+          primary: blue, // M3 리플/상태색에 주로 사용
+          secondary: blue,
+        ),
+        bottomNavigationBarTheme: Theme.of(context).bottomNavigationBarTheme.copyWith(
+          selectedItemColor: blue,
+          unselectedItemColor: Colors.grey,
+        ),
+      ),
+      child: BottomNavigationBar(
+        currentIndex: currentIndex,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: blue,            // 아이콘/라벨 선택 색상
+        unselectedItemColor: Colors.grey,   // 비선택 색상
+        selectedIconTheme: const IconThemeData(size: 26), // 살짝 강조(옵션)
+        onTap: (i) async {
+          if (i == currentIndex) return;
 
-          case 1: // SeaWeatherPage
-            _goReplace(context, const SeaWeatherPage());
-            break;
+          switch (i) {
+            case 0:
+              final pos = await _getPosition(context);
+              if (pos == null) return;
+              _goReplace(context, WeatherPage(lat: pos.latitude, lon: pos.longitude));
+              break;
 
-          case 2:
-          _goReplace(context, const TidePage());
-            break;
+            case 1: // SeaWeatherPage
+              _goReplace(context, const SeaWeatherPage());
+              break;
 
-          case 3:
-            _goReplace(context, const FishingPointMainPage());
-            break;
+            case 2:
+              _goReplace(context, const TidePage());
+              break;
 
-          case 4:
-            _goReplace(context, const WatchConnectPage());
-          default:
-            break;
-        }
-      },
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.sunny), label: '날씨'),
-        BottomNavigationBarItem(icon: Icon(Icons.water), label: '바다 날씨'),
-        BottomNavigationBarItem(icon: Icon(Icons.water_drop), label: '물때'),
-        BottomNavigationBarItem(icon: Icon(Icons.place), label: '낚시 포인트'),
-        BottomNavigationBarItem(icon: Icon(Icons.watch), label: '워치'),
-      ],
+            case 3:
+              _goReplace(context, const FishingPointMainPage());
+              break;
+
+            case 4:
+              _goReplace(context, const WatchConnectPage());
+              break;
+
+            default:
+              break;
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.sunny), label: '날씨'),
+          BottomNavigationBarItem(icon: Icon(Icons.water), label: '바다 날씨'),
+          BottomNavigationBarItem(icon: Icon(Icons.water_drop), label: '물때'),
+          BottomNavigationBarItem(icon: Icon(Icons.place), label: '낚시 포인트'),
+          BottomNavigationBarItem(icon: Icon(Icons.watch), label: '워치'),
+        ],
+      ),
     );
   }
 

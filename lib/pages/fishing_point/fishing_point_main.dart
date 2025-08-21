@@ -2,14 +2,16 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 
 import '../../app_bottom_nav.dart';
-import '../../routes.dart';
-import '../../models/fishing_point.dart';
-import '../../wear_bridge.dart';
 import '../../env.dart';
+import '../../models/fishing_point.dart';
+import '../../routes.dart';
+import '../../wear_bridge.dart';
+
+import 'fishing_point_region.dart'; // SeaSpot, kWestSeaSpots
 
 class FishingPointMainPage extends StatefulWidget {
   const FishingPointMainPage({super.key});
@@ -19,17 +21,17 @@ class FishingPointMainPage extends StatefulWidget {
 }
 
 class _FishingPointMainPageState extends State<FishingPointMainPage> {
-  String _regionTitle = '낚시포인트';
+  String _regionTitle = '내 위치';
+
   double? _myLat;
   double? _myLon;
 
-  // 기본 좌표(부산 대략)
-  static const double _defaultLat = 35.1151;
-  static const double _defaultLon = 129.0415;
+  SeaSpot? _selectedSpot;
 
-  Uri get _apiUri => Uri.parse(
-    '${Env.API_BASE_URL}/point?lat=${_myLat ?? _defaultLat}&lon=${_myLon ?? _defaultLon}&key=${Env.BADA_SERVICE_KEY}',
-  );
+  SeaSpot? _nearestSpot;
+
+  double? get _queryLat => _selectedSpot?.lat ?? _myLat;
+  double? get _queryLon => _selectedSpot?.lon ?? _myLon;
 
   static const _fallbackImg =
       'https://images.unsplash.com/photo-1508182311256-e3f6b475a2e4?auto=format&fit=crop&w=1080&q=80';
@@ -57,15 +59,17 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       );
       _myLat = pos.latitude;
       _myLon = pos.longitude;
-      _regionTitle = '내 위치';
-    } catch (_) {
-      // 권한 거부/실패 → 기본좌표로 진행
-      _myLat = null;
-      _myLon = null;
-      _regionTitle = '낚시포인트';
-    }
 
-    await _fetchPoints();
+      _nearestSpot = _findNearestSpot(_myLat!, _myLon!);
+      _updateTitle();
+
+      await _fetchPoints();
+    } catch (e) {
+      setState(() {
+        _error = '현재 위치를 가져오지 못했어요. 위치 권한을 허용해 주세요.\n${e.toString()}';
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _ensureLocationPermission() async {
@@ -82,6 +86,45 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     }
   }
 
+  void _updateTitle() {
+    setState(() {
+      if (_selectedSpot != null) {
+        _regionTitle = _formatSpotLabel(_selectedSpot!);
+      } else if (_nearestSpot != null) {
+        _regionTitle = _formatSpotLabel(_nearestSpot!);
+      } else {
+        _regionTitle = '내 위치';
+      }
+    });
+  }
+
+  SeaSpot? _findNearestSpot(double lat, double lon) {
+    SeaSpot? best;
+    var bestDist = double.infinity;
+    for (final s in kWestSeaSpots) {
+      final slat = s.lat;
+      final slon = s.lon;
+      if (slat == null || slon == null) continue;
+      final d = _haversineKm(lat, lon, slat, slon);
+      if (d < bestDist) {
+        bestDist = d;
+        best = s;
+      }
+    }
+    return best;
+  }
+
+  String _formatSpotLabel(SeaSpot s) {
+    final sg = (s.subregion != null && s.subregion!.isNotEmpty)
+        ? ' ${s.subregion}'
+        : '';
+    return '${s.region}$sg · ${s.name}';
+  }
+
+  Uri _buildApiUri(double lat, double lon) => Uri.parse(
+    '${Env.API_BASE_URL}/point?lat=$lat&lon=$lon&key=${Env.BADA_SERVICE_KEY}',
+  );
+
   Future<void> _fetchPoints() async {
     setState(() {
       _loading = true;
@@ -89,15 +132,22 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     });
 
     try {
-      final res = await http.get(_apiUri);
+      final lat = _queryLat;
+      final lon = _queryLon;
+      if (lat == null || lon == null) {
+        throw Exception('질의 좌표가 없어요 (내 위치/선택 지역).');
+      }
+
+      final res = await http.get(_buildApiUri(lat, lon));
       if (res.statusCode != 200) {
         throw Exception('HTTP ${res.statusCode}');
       }
 
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final list = (body['fishing_point'] as List).cast<Map<String, dynamic>>();
+      final list =
+      (body['fishing_point'] as List).cast<Map<String, dynamic>>();
 
-      final parsed = list.map<FishingPoint>((j) => _toModel(j)).toList()
+      final parsed = list.map<FishingPoint>(_toModel).toList()
         ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
 
       setState(() {
@@ -105,7 +155,6 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
         _loading = false;
       });
 
-      // 웨어러블 전송
       await WearBridge.sendFishingPoints(parsed
           .map((p) => {
         'name': p.name,
@@ -115,7 +164,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
         'tide_time': '',
         'target': p.species.join(','),
         'lat': p.lat,
-        'lon': p.lng, // 모델이 lon이면 여기를 p.lon 로 바꿔
+        'lon': p.lng, // 모델이 lon이면 p.lon
         'point_dt': '',
       })
           .toList());
@@ -126,6 +175,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       });
     }
   }
+
 
   T? _pick<T>(Map<String, dynamic> j, List<String> cands) {
     String norm(String s) =>
@@ -162,12 +212,15 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
   double _deg2rad(double d) => d * math.pi / 180.0;
 
-  // 절대 URL만 허용, 아니면 fallback
   String resolveImageUrl(String? raw, {required String fallback}) {
-    final p = raw?.trim() ?? '';
+    final p = (raw ?? '').trim();
     if (p.isEmpty) return fallback;
     if (p.startsWith('http://') || p.startsWith('https://')) return p;
-    return fallback;
+
+    var base = Env.BDAD_TIME_IMAGE_URL;
+    if (base.endsWith('/')) base = base.substring(0, base.length - 1);
+    final right = p.startsWith('/') ? p.substring(1) : p;
+    return '$base/$right';
   }
 
   FishingPoint _toModel(Map<String, dynamic> j) {
@@ -185,9 +238,8 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     final lat = double.tryParse(latStr) ?? 0.0;
     final lon = double.tryParse(lonStr) ?? 0.0;
 
-    // 거리 계산 기준: 현재 위치 있으면 그걸로, 아니면 기본값
-    final baseLat = _myLat ?? _defaultLat;
-    final baseLon = _myLon ?? _defaultLon;
+    final baseLat = _queryLat ?? 0.0;
+    final baseLon = _queryLon ?? 0.0;
     final dist = _haversineKm(baseLat, baseLon, lat, lon);
 
     return FishingPoint(
@@ -198,10 +250,76 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       depthRange: dpwt,
       species: _parseSpecies(target),
       imageUrl: imageUrl,
-      lat: lat, // 위도
-      lng: lon, // 경도 (모델 필드명이 lon이면 여기/아래 모두 lon으로 교체)
+      lat: lat,
+      lng: lon,
     );
   }
+
+  Future<void> _openRegionTopSheet() async {
+    final selected = await showGeneralDialog<SeaSpot>(
+      context: context,
+      barrierLabel: '지역 선택',
+      barrierDismissible: true,
+      barrierColor: Colors.black38,
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (context, _, __) {
+        final media = MediaQuery.of(context);
+        final topMargin = media.padding.top + kToolbarHeight + 8; // 앱바 아래쪽
+
+        return SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: EdgeInsets.fromLTRB(16, topMargin, 16, 0),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                constraints: BoxConstraints(
+                  maxWidth: 640, // 태블릿 대응
+                  maxHeight: media.size.height * 0.65,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: _RegionSelectorBody(
+                  initialSelected: _selectedSpot,
+                  nearestSpot: _nearestSpot,
+                  onSubmit: (spot) => Navigator.of(context).pop(spot),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim, sec, child) {
+        final a = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, -0.12), end: Offset.zero)
+              .animate(a),
+          child: FadeTransition(opacity: a, child: child),
+        );
+      },
+    );
+
+    if (selected != null) {
+      setState(() {
+        _selectedSpot = selected;
+        _nearestSpot = null; // 수동 선택 후 자동 라벨 해제
+      });
+      _updateTitle();
+      await _fetchPoints();
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +334,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
         centerTitle: true,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          _regionTitle, // '내 위치' or '낚시포인트'
+          _regionTitle,
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -243,54 +361,75 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(0, topPad + kToolbarHeight, 0, 0),
-            child: Builder(
-              builder: (context) {
-                if (_loading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (_error != null) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton(
-                          onPressed: _init,
-                          child: const Text('다시 시도'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
+            padding: EdgeInsets.fromLTRB(16, topPad + kToolbarHeight, 16, 0),
+            child: Column(
+              children: [
+                _RegionChipButton(
+                  label: _selectedSpot == null
+                      ? '지역 선택'
+                      : _formatSpotLabel(_selectedSpot!),
+                  onTap: _openRegionTopSheet, // ← 여기!
+                ),
+                const SizedBox(height: 12),
 
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                  itemCount: _points.length + 1, // 1 = 상단 여백용
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return const SizedBox(height: 0);
-                    }
-                    final item = _points[index - 1];
-                    return _FishingPointCard(
-                      data: item,
-                      onTapDetail: () {
-                        Navigator.pushNamed(
-                          context,
-                          Routes.fishingPointDetail,
-                          arguments: item,
+                // 리스트
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      if (_loading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (_error != null) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton(
+                                onPressed: _init,
+                                child: const Text('다시 시도'),
+                              ),
+                            ],
+                          ),
                         );
-                      },
-                    );
-                  },
-                );
-              },
+                      }
+                      if (_points.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            '근처 포인트가 없어요.',
+                            style:
+                            TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(4, 8, 4, 24),
+                        itemCount: _points.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          final item = _points[index];
+                          return _FishingPointCard(
+                            data: item,
+                            onTapDetail: () {
+                              Navigator.pushNamed(
+                                context,
+                                Routes.fishingPointDetail,
+                                arguments: item,
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -300,7 +439,116 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   }
 }
 
-// ---------- Widgets ----------
+
+class _Dd<T> extends StatelessWidget {
+  const _Dd({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String label;
+  final T? value;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<T>(
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          dropdownColor: Colors.white,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+          borderRadius: BorderRadius.circular(14),
+          decoration: InputDecoration(
+            contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            filled: true,
+            fillColor: const Color(0xFFF5F7FB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFE9ECF1)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFE9ECF1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFF7C66D6), width: 1.2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+class _RegionChipButton extends StatelessWidget {
+  const _RegionChipButton({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseBlue = Colors.blue.shade700;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.28),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.white.withOpacity(0.9), width: 1.4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              )
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.location_on_outlined, color: baseBlue, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.blue.shade800,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.keyboard_arrow_down_rounded, color: baseBlue, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 class _FishingPointCard extends StatelessWidget {
   const _FishingPointCard({required this.data, required this.onTapDetail});
@@ -430,6 +678,145 @@ class _Thumb extends StatelessWidget {
     );
   }
 }
+
+class _RegionSelectorBody extends StatefulWidget {
+  const _RegionSelectorBody({
+    required this.onSubmit,
+    this.initialSelected,
+    this.nearestSpot,
+  });
+
+  final ValueChanged<SeaSpot> onSubmit;
+  final SeaSpot? initialSelected;
+  final SeaSpot? nearestSpot;
+
+  @override
+  State<_RegionSelectorBody> createState() => _RegionSelectorBodyState();
+}
+
+class _RegionSelectorBodyState extends State<_RegionSelectorBody> {
+  late final List<SeaSpot> _all;
+  late final List<String> _regions;
+  late String _region;
+  String? _subregion;
+  late List<SeaSpot> _names;
+  SeaSpot? _nameSel;
+
+  @override
+  void initState() {
+    super.initState();
+    _all = kWestSeaSpots.where((s) => s.lat != null && s.lon != null).toList();
+
+    _regions = {
+      for (final s in _all) s.region.trim(),
+    }.toList()
+      ..sort();
+
+    _region = widget.initialSelected?.region ??
+        widget.nearestSpot?.region ??
+        (_regions.isNotEmpty ? _regions.first : '');
+
+    _subregion = widget.initialSelected?.subregion ?? widget.nearestSpot?.subregion;
+
+    _names = _namesSource(_region, _subregion);
+    _nameSel = widget.initialSelected ?? (_names.isNotEmpty ? _names.first : null);
+  }
+
+  List<SeaSpot> _namesSource(String r, String? sr) => _all
+      .where((s) => s.region == r && (sr == null ? true : s.subregion == sr))
+      .toList()
+    ..sort((a, b) => a.name.compareTo(b.name));
+
+  List<String?> _subregions(String r) => {
+    for (final s in _all.where((s) => s.region == r)) s.subregion
+  }.toList()
+    ..sort((a, b) => (a ?? '').compareTo(b ?? ''));
+
+  void _onChangeRegion(String r) {
+    setState(() {
+      _region = r;
+      final subs = _subregions(_region);
+      _subregion = subs.contains(_subregion) ? _subregion : (subs.isNotEmpty ? subs.first : null);
+      _names = _namesSource(_region, _subregion);
+      _nameSel = _names.isNotEmpty ? _names.first : null;
+    });
+  }
+
+  void _onChangeSubregion(String? sr) {
+    setState(() {
+      _subregion = sr;
+      _names = _namesSource(_region, _subregion);
+      _nameSel = _names.isNotEmpty ? _names.first : null;
+    });
+  }
+
+  void _onChangeName(SeaSpot v) => setState(() => _nameSel = v);
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 54, height: 5, margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.black12, borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const Text('지역 선택', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 14),
+
+          _Dd<String>(
+            label: 'Region (시/도)',
+            value: _region,
+            items: _regions
+                .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+                .toList(),
+            onChanged: (v) { if (v != null) _onChangeRegion(v); },
+          ),
+          const SizedBox(height: 12),
+
+          _Dd<String?>(
+            label: 'Subregion (시/군/구)',
+            value: _subregion,
+            items: _subregions(_region)
+                .map((e) => DropdownMenuItem<String?>(
+              value: e, child: Text(e ?? '전체'),
+            ))
+                .toList(),
+            onChanged: _onChangeSubregion,
+          ),
+          const SizedBox(height: 12),
+
+          _Dd<SeaSpot>(
+            label: 'Name (지점)',
+            value: _nameSel,
+            items: _names
+                .map((e) => DropdownMenuItem<SeaSpot>(value: e, child: Text(e.name)))
+                .toList(),
+            onChanged: (v) { if (v != null) _onChangeName(v); },
+          ),
+          const SizedBox(height: 18),
+
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF42A5F5),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _nameSel == null ? null : () => widget.onSubmit(_nameSel!),
+              child: const Text('적용'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
