@@ -4,10 +4,10 @@ import 'package:flutter/services.dart' show rootBundle;
 
 class Env {
 
-  static late final String AIRKOREA_SERVICE_KEY;
-  static late final String API_BASE_URL;
-  static late final String BADA_SERVICE_KEY;
-  static late final bool   USE_TIDE_MOCK;
+  // static late final String AIRKOREA_SERVICE_KEY;
+  // static late final String API_BASE_URL;
+  // static late final String BADA_SERVICE_KEY;
+  // static late final bool   USE_TIDE_MOCK;
 
   static bool _loaded = false;
   static Future<void>? _loading;
