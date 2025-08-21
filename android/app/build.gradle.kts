@@ -1,42 +1,75 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+
+// local.properties 읽기
+val localProps = gradleLocalProperties(rootDir, providers)
+val airKey: String = localProps.getProperty("AIRKOREA_SERVICE_KEY") ?: ""
+val base: String = localProps.getProperty("API_BASE_URL") ?: ""
+val bada: String = localProps.getProperty("BADA_SERVICE_KEY") ?: ""
+
 plugins {
     id("com.android.application")
-    id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.example.dive_app"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+
+    compileSdk = 36
+    ndkVersion = "27.0.12077973"
+
+    defaultConfig {
+        applicationId = "com.example.dive_app"
+        buildConfigField("String", "AIRKOREA_SERVICE_KEY", "\"$airKey\"")
+        buildConfigField("String", "API_BASE_URL", "\"$base\"")
+        buildConfigField("String", "BADA_SERVICE_KEY", "\"$bada\"")
+        minSdk = 23
+        targetSdk = 35
+
+        versionCode = 1
+        versionName = "1.0"
+    }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        // AGP 8+ 권장: Java 17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "17"
     }
 
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.dive_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-    }
-
+    // 리소스 축소 오류 해결: debug는 축소 끄고, release는 R8+리소스축소 함께 켬
     buildTypes {
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug") // 배포 전 교체
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation("com.google.android.gms:play-services-wearable:18.2.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation ("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1") // 최신 버전
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 }
 
 flutter {

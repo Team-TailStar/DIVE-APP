@@ -1,7 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:flutter/services.dart';
+import 'pages/ui/aq_theme.dart';
+import 'pages/ui/aq_widget.dart';
 import 'routes.dart';
+import 'env.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 한국어 날짜 포맷 초기화
+  await initializeDateFormatting('ko_KR', null);
+
+  // 환경 변수 로드
+  await Env.ensureLoaded();
+
+  // Wear 채널 초기화
+  WearChannel.init();
+
+  // 네이버 지도 인증
+  await FlutterNaverMap().init(
+    clientId: 'vwykpurwuk',
+    onAuthFailed: (ex) {
+      switch (ex) {
+        case NQuotaExceededException(:final message):
+          print("❌ 네이버 지도 사용량 초과 (message: $message)");
+          break;
+        case NUnauthorizedClientException() ||
+        NClientUnspecifiedException() ||
+        NAnotherAuthFailedException():
+          print("❌ 네이버 지도 인증 실패: $ex");
+          break;
+      }
+    },
+  );
+
   runApp(const SeaWeatherApp());
 }
 
@@ -11,29 +45,79 @@ class SeaWeatherApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '바다 날씨',
+      title: '바다 친구',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF6EC5FF),
-        scaffoldBackgroundColor: const Color(0xFFEFF8FD),
-        fontFamily: 'Pretendard', // (optional) remove if not added
-        chipTheme: ChipThemeData(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-        cardTheme: const CardThemeData(
-          color: Colors.white,
-          elevation: 0,
-          surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-          ),
-        ),
-      ),
+
       initialRoute: Routes.home,
       onGenerateRoute: RouteGenerator.onGenerateRoute,
+      theme: ThemeData(
+        useMaterial3: true,
+          scaffoldBackgroundColor: Colors.transparent,
+
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF7BB8FF), // 투명
+          elevation: 0,                        // 그림자 제거
+          scrolledUnderElevation: 0,           // 스크롤 시 생기는 그림자 제거
+          foregroundColor: Colors.black,       // 아이콘/텍스트 색상
+          centerTitle: true,                   // 타이틀 중앙 (선택)
+        ),
+        extensions: <ThemeExtension<dynamic>>[
+          AqCardTheme.light(),
+        ],
+      ),
+      builder: (context, child) {
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF7BB8FF), Color(0xFFA8D3FF)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: child,
+        );
+      },
     );
+
   }
+}
+
+/// Flutter ↔ Android 통신 채널
+class WearChannel {
+  static const _channel = MethodChannel("app.dive/wear");
+
+  static void init() {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == "requestWeather") {
+        print("📩 Android → Flutter: requestWeather 호출됨");
+        await testSendWeather();
+      }
+    });
+  }
+
+  static Future<void> sendWeather(Map<String, dynamic> weather) async {
+    print("📤 Flutter → Android: sendWeather 전송 시도");
+    try {
+      await _channel.invokeMethod("sendWeather", weather);
+      print("✅ Flutter → Android: sendWeather 전송 성공");
+    } on PlatformException catch (e) {
+      print("❌ Flutter → Android: sendWeather 전송 실패: ${e.message}");
+    }
+  }
+}
+
+Future<void> testSendWeather() async {
+  final weatherData = {
+    "sky": "맑음",
+    "windspd": "3.2",
+    "temp": "28",
+    "humidity": "65",
+    "rain": "0",
+    "winddir": "NW",
+    "waveHt": "0.5",
+    "waveDir": "북서",
+    "obs_wt": "25.5",
+  };
+
+  await WearChannel.sendWeather(weatherData);
 }

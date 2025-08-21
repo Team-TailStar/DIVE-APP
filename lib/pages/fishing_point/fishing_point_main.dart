@@ -1,0 +1,491 @@
+import 'dart:convert';
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
+
+import '../../app_bottom_nav.dart';
+import '../../routes.dart';
+import '../../models/fishing_point.dart';
+import '../../wear_bridge.dart';
+import '../../env.dart';
+// 위치 선택용 지역 피커
+import '../sea_weather/region_picker.dart' as rp;
+
+class FishingPointMainPage extends StatefulWidget {
+  const FishingPointMainPage({super.key});
+
+  @override
+  State<FishingPointMainPage> createState() => _FishingPointMainPageState();
+}
+
+class _FishingPointMainPageState extends State<FishingPointMainPage> {
+  double? _myLat;
+  double? _myLon;
+  String _regionTitle = '낚시포인트'; // 앱바 타이틀에 표기
+
+  // 기본 좌표(부산 대략)
+  static const double _defaultLat = 35.1151;
+  static const double _defaultLon = 129.0415;
+
+  Uri get _apiUri => Uri.parse(
+    '${Env.API_BASE_URL}/point?lat=${_myLat ?? _defaultLat}&lon=${_myLon ?? _defaultLon}&key=${Env.BADA_SERVICE_KEY}',
+  );
+
+  static const _fallbackImg =
+      'https://images.unsplash.com/photo-1508182311256-e3f6b475a2e4?auto=format&fit=crop&w=1080&q=80';
+
+  SeaArea _selectedSea = SeaArea.south; // 초기: 남해(부산)
+  String? _selectedRegion; // 예) '부산광역시 영도구'
+  String? _selectedSpot;   // 예) '대항선착장'
+
+  bool _loading = true;
+  String? _error;
+  List<FishingPoint> _points = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _init(); // ✅ 권한 + 현재 위치 + 목록 호출
+  }
+
+  Future<void> _init() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      await _ensureLocationPermission();
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      _myLat = pos.latitude;
+      _myLon = pos.longitude;
+      _regionTitle = '내 위치';
+    } catch (_) {
+      // 권한 거부/실패 → 기본좌표로 진행
+      _myLat = null;
+      _myLon = null;
+      _regionTitle = '낚시포인트';
+    }
+
+    await _fetchPoints();
+  }
+
+  Future<void> _pickRegion() async {
+    final picked = await rp.showRegionPicker(context, initialName: _regionTitle);
+    if (picked != null) {
+      setState(() {
+        _myLat = picked.lat;
+        _myLon = picked.lon;
+        _regionTitle = picked.name;
+      });
+      await _fetchPoints();
+    }
+  }
+
+  Future<void> _ensureLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) throw Exception('위치 서비스가 꺼져 있어요.');
+
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.deniedForever) {
+      throw Exception('위치 권한이 없어 현재 위치를 쓸 수 없어요.');
+    }
+  }
+
+  Future<void> _fetchPoints() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final res = await http.get(_apiUri);
+      if (res.statusCode != 200) {
+        throw Exception('HTTP ${res.statusCode}');
+      }
+
+      final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final list =
+      (body['fishing_point'] as List).cast<Map<String, dynamic>>();
+
+      parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+
+      // ✅ 내/선택 위치 기준 정렬
+      parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+
+      setState(() {
+        _points = parsed;
+        _loading = false;
+      });
+
+      // 웨어러블 전송(기존 로직 유지)
+      await WearBridge.sendFishingPoints(parsed.map((p) {
+        return {
+          'name': p.name,
+          'point_nm': p.name,
+          'dpwt': p.depthRange,
+          'material': '',
+          'tide_time': '',
+          'target': p.species.join(','),
+          'lat': p.lat,
+          'lon': p.lng,
+          'point_dt': '',
+        };
+      }).toList());
+    } catch (e) {
+      setState(() {
+        _error = '데이터를 불러오지 못했어요. ${e.toString()}';
+        _loading = false;
+      });
+    }
+  }
+
+  T? _pick<T>(Map<String, dynamic> j, List<String> cands) {
+    String norm(String s) =>
+        s.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '').toLowerCase();
+    final nk = {for (final k in j.keys) norm(k): k};
+    for (final c in cands) {
+      final key = nk[norm(c)];
+      if (key != null) return j[key] as T?;
+    }
+    return null;
+  }
+
+  List<String> _parseSpecies(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return const [];
+    return raw
+        .split('▶')
+        .map((s) => s.split('-').first.trim())
+        .where((s) => s.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371.0;
+    final dLat = _deg2rad(lat2 - lat1);
+    final dLon = _deg2rad(lon2 - lon1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_deg2rad(lat1)) *
+            math.cos(_deg2rad(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return R * c;
+  }
+
+  double _deg2rad(double d) => d * math.pi / 180.0;
+
+  FishingPoint _toModel(Map<String, dynamic> j) {
+    final name = _pick<String>(j, ['point_nm', 'name']) ?? '이름 없음';
+    final addr = _pick<String>(j, ['addr', '주소']) ?? '';
+    final dpwt = _pick<String>(j, ['dpwt', 'depth', '수심']) ?? '';
+    final latStr = _pick<String>(j, ['lat']) ?? '0';
+    final lonStr = _pick<String>(j, ['lon']) ?? '0';
+    final photo = _pick<String>(j, ['photo', 'image', 'image_url', 'img']);
+    final target = _pick<String>(j, ['target']);
+
+    final imageUrl =
+    (photo == null || photo.trim().isEmpty) ? _fallbackImg : photo.trim();
+
+    final lat = double.tryParse(latStr) ?? 0.0;
+    final lon = double.tryParse(lonStr) ?? 0.0;
+
+    // ✅ 거리 계산 기준: 내/선택 위치(없으면 기본값)
+    final baseLat = _myLat ?? _defaultLat;
+    final baseLon = _myLon ?? _defaultLon;
+    final dist = _haversineKm(baseLat, baseLon, lat, lon);
+
+    return FishingPoint(
+      id: '${lat}_${lon}_${name.hashCode}',
+      name: name,
+      location: addr,
+      distanceKm: dist,
+      depthRange: dpwt,
+      species: _parseSpecies(target),
+      imageUrl: imageUrl,
+      lat: lat,
+      lng: lon,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+
+    return Scaffold(
+      extendBodyBehindAppBar: true, // 배경을 앱바 뒤까지
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          _regionTitle,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        leadingWidth: 80,
+        leading: IconButton(
+          tooltip: '위치 선택',
+          icon: const Icon(Icons.location_on_sharp, color: Color(0xFFFF4151)),
+          onPressed: _pickRegion,
+        ),
+        actions: [
+          IconButton(
+            tooltip: '현재 위치로 새로고침',
+            icon: const Icon(Icons.my_location, color: Colors.white),
+            onPressed: _init,
+          ),
+        ],
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF7BB8FF), Color(0xFFA8D3FF)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(0, topPad + kToolbarHeight, 0, 0),
+            child: Builder(
+              builder: (context) {
+                if (_loading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (_error != null) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: _init,
+                          child: const Text('다시 시도'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  itemCount: _points.length + 1, // 1 = 섹션 타이틀만
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 4, bottom: 4),
+                        // child: Text(
+                        //   '낚시 포인트 목록',
+                        //   style: TextStyle(
+                        //     fontSize: 14,
+                        //     color: Colors.white,
+                        //     fontWeight: FontWeight.w700,
+                        //   ),
+                        // ),
+                      );
+                    }
+
+                    final item = _points[index - 1];
+                    return _FishingPointCard(
+                      data: item,
+                      onTapDetail: () {
+                        Navigator.pushNamed(
+                          context,
+                          Routes.fishingPointDetail,
+                          arguments: item,
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+
+          ),
+        ),
+      ),
+      bottomNavigationBar: const AppBottomNav(currentIndex: 3),
+    );
+  }
+}
+
+class _FishingPointCard extends StatelessWidget {
+  const _FishingPointCard({required this.data, required this.onTapDetail});
+  final FishingPoint data;
+  final VoidCallback onTapDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    const radius = 16.0;
+
+    return Card(
+      elevation: 0,
+      color: Colors.white.withOpacity(0.8),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: Color(0xFFE9ECF1)),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Thumb(imageUrl: data.imageUrl),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 제목 + 거리
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          data.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatKm(data.distanceKm),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _InfoRow(
+                    icon: Icons.location_on_outlined,
+                    iconColor: Colors.redAccent,
+                    text: data.location,
+                  ),
+                  const SizedBox(height: 4),
+                  _InfoRow(
+                    icon: Icons.waves_outlined,
+                    iconColor: Color(0xFF2A79FF),
+                    text: data.depthRange,
+                  ),
+                  const SizedBox(height: 4),
+                  _InfoRow(
+                    icon: Icons.arrow_right_alt_rounded,
+                    iconColor: Colors.black54,
+                    text: data.species.isEmpty
+                        ? '어종 정보 없음'
+                        : data.species.join(', '),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: const Color(0xFFA6DBFF),
+                        foregroundColor: const Color(0xFF0B6AAE),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 10),
+                        shape: const StadiumBorder(),
+                      ),
+                      onPressed: onTapDetail,
+                      label: const Text('상세보기'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatKm(double km) {
+    final isInt = km.truncateToDouble() == km;
+    return '${km.toStringAsFixed(isInt ? 0 : 1)} km';
+  }
+}
+
+class _Thumb extends StatelessWidget {
+  const _Thumb({required this.imageUrl});
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 92,
+      height: 92,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: const Color(0xFFEFF3F8),
+            alignment: Alignment.center,
+            child: const Icon(Icons.image_not_supported_outlined,
+                size: 28, color: Colors.black38),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.iconColor,
+    required this.text,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: iconColor),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13.5, color: Colors.black87),
+          ),
+        ),
+      ],
+    );
+  }
+}
