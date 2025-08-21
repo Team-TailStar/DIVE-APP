@@ -13,6 +13,18 @@ import '../../env.dart';
 // 위치 선택용 지역 피커
 import '../sea_weather/region_picker.dart' as rp;
 
+/// 바다 구역
+enum SeaArea { west, south, east, jeju }
+
+extension _SeaAreaX on SeaArea {
+  String get label => switch (this) {
+    SeaArea.west => '서해',
+    SeaArea.south => '남해',
+    SeaArea.east => '동해',
+    SeaArea.jeju => '제주도',
+  };
+}
+
 class FishingPointMainPage extends StatefulWidget {
   const FishingPointMainPage({super.key});
 
@@ -21,7 +33,7 @@ class FishingPointMainPage extends StatefulWidget {
 }
 
 class _FishingPointMainPageState extends State<FishingPointMainPage> {
-  // ✅ 현재/선택 위치
+
   double? _myLat;
   double? _myLon;
   String _regionTitle = '낚시포인트'; // 앱바 타이틀에 표기
@@ -30,12 +42,17 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   static const double _defaultLat = 35.1151;
   static const double _defaultLon = 129.0415;
 
+
   Uri get _apiUri => Uri.parse(
     '${Env.API_BASE_URL}/point?lat=${_myLat ?? _defaultLat}&lon=${_myLon ?? _defaultLon}&key=${Env.BADA_SERVICE_KEY}',
   );
 
   static const _fallbackImg =
       'https://images.unsplash.com/photo-1508182311256-e3f6b475a2e4?auto=format&fit=crop&w=1080&q=80';
+
+  SeaArea _selectedSea = SeaArea.south; // 초기: 남해(부산)
+  String? _selectedRegion; // 예) '부산광역시 영도구'
+  String? _selectedSpot;   // 예) '대항선착장'
 
   bool _loading = true;
   String? _error;
@@ -44,7 +61,8 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
   @override
   void initState() {
     super.initState();
-    _init(); // ✅ 권한 + 현재 위치 + 목록 호출
+
+    _init(); 
   }
 
   Future<void> _init() async {
@@ -97,6 +115,12 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
     }
   }
 
+  void _setCenterBySea(SeaArea sea) {
+    final c = _seaDefaultCenters[sea]!;
+    _originLat = c.$1;
+    _originLon = c.$2;
+  }
+
   Future<void> _fetchPoints() async {
     setState(() {
       _loading = true;
@@ -113,30 +137,29 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       final list =
       (body['fishing_point'] as List).cast<Map<String, dynamic>>();
 
-      final parsed = list.map<FishingPoint>((j) => _toModel(j)).toList();
-
-      // ✅ 내/선택 위치 기준 정렬
       parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+
 
       setState(() {
         _points = parsed;
         _loading = false;
       });
 
-      // 웨어러블 전송(기존 로직 유지)
-      await WearBridge.sendFishingPoints(parsed.map((p) {
-        return {
-          'name': p.name,
-          'point_nm': p.name,
-          'dpwt': p.depthRange,
-          'material': '',
-          'tide_time': '',
-          'target': p.species.join(','),
-          'lat': p.lat,
-          'lon': p.lng,
-          'point_dt': '',
-        };
-      }).toList());
+
+      // 웨어러블 전송
+      await WearBridge.sendFishingPoints(parsed
+          .map((p) => {
+        'name': p.name,
+        'point_nm': p.name,
+        'dpwt': p.depthRange,
+        'material': '',
+        'tide_time': '',
+        'target': p.species.join(','),
+        'lat': p.lat,
+        'lon': p.lng,
+        'point_dt': '',
+      })
+          .toList());
     } catch (e) {
       setState(() {
         _error = '데이터를 불러오지 못했어요. ${e.toString()}';
@@ -144,6 +167,8 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       });
     }
   }
+
+  // ---------- JSON -> Model ----------
 
   T? _pick<T>(Map<String, dynamic> j, List<String> cands) {
     String norm(String s) =>
@@ -180,17 +205,30 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
   double _deg2rad(double d) => d * math.pi / 180.0;
 
+  String resolveImageUrl(String? raw, {required String fallback}) {
+    final p = raw?.trim() ?? '';
+    if (p.isEmpty) return fallback;
+    if (p.startsWith('http://') || p.startsWith('https://')) return p;
+
+    final base = Env.IMAGE_BASE_URL.trim();
+    if (base.isEmpty) return fallback;
+
+    final sep1 = base.endsWith('/') ? '' : '/';
+    final sep2 = p.startsWith('/') ? '' : '';
+    return '$base$sep1$sep2$p';
+  }
+
   FishingPoint _toModel(Map<String, dynamic> j) {
     final name = _pick<String>(j, ['point_nm', 'name']) ?? '이름 없음';
     final addr = _pick<String>(j, ['addr', '주소']) ?? '';
     final dpwt = _pick<String>(j, ['dpwt', 'depth', '수심']) ?? '';
     final latStr = _pick<String>(j, ['lat']) ?? '0';
     final lonStr = _pick<String>(j, ['lon']) ?? '0';
-    final photo = _pick<String>(j, ['photo', 'image', 'image_url', 'img']);
-    final target = _pick<String>(j, ['target']);
 
-    final imageUrl =
-    (photo == null || photo.trim().isEmpty) ? _fallbackImg : photo.trim();
+    final photoRaw = _pick<String>(j, ['photo', 'image_url', 'image', 'img']);
+    final imageUrl = resolveImageUrl(photoRaw, fallback: _fallbackImg);
+
+    final target = _pick<String>(j, ['target']);
 
     final lat = double.tryParse(latStr) ?? 0.0;
     final lon = double.tryParse(lonStr) ?? 0.0;
@@ -212,6 +250,124 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       lng: lon,
     );
   }
+
+  // ---------- Region/Spot 유틸 ----------
+
+  String _normalizeRegion(String addr) {
+    if (addr.trim().isEmpty) return '';
+    final parts = addr.split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '';
+    if (parts.length == 1) return parts.first;
+    return '${parts[0]} ${parts[1]}';
+  }
+
+  List<String> get _availableRegions {
+    final set = <String>{};
+    for (final p in _points) {
+      final reg = _normalizeRegion(p.location);
+      if (reg.isNotEmpty) set.add(reg);
+    }
+    final list = set.toList()..sort((a, b) => a.compareTo(b));
+    return list;
+  }
+
+  List<String> _spotsForRegion(String region) {
+    final list = _points
+        .where((p) => _normalizeRegion(p.location) == region)
+        .map((p) => p.name.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.compareTo(b));
+    return list;
+  }
+
+  // ---------- Bottom Sheet ----------
+
+  Future<void> _openSeaSheet() async {
+    final ret = await showModalBottomSheet<SeaArea>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: false,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return _PickerSheet<SeaArea>(
+          title: '바다 선택',
+          options: SeaArea.values,
+          labelOf: (SeaArea s) => s.label,
+          selected: _selectedSea,
+        );
+      },
+    );
+    if (ret != null && ret != _selectedSea) {
+      setState(() {
+        _selectedSea = ret;
+        _selectedRegion = null;
+        _selectedSpot = null;
+        _setCenterBySea(ret); // ✅ 기준 좌표 변경
+      });
+      await _fetchPoints();   // ✅ 좌표 바뀌었으니 재호출
+    }
+  }
+
+  Future<void> _openRegionSheet() async {
+    final options = _availableRegions;
+    final ret = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return _PickerSheet<String>(
+          title: '지역(도/시) 선택',
+          options: options,
+          labelOf: (s) => s,
+          selected: _selectedRegion,
+        );
+      },
+    );
+    if (ret != null) {
+      setState(() {
+        _selectedRegion = ret;
+        _selectedSpot = null;
+      });
+    }
+  }
+
+  Future<void> _openSpotSheet() async {
+    if (_selectedRegion == null) return;
+    final options = _spotsForRegion(_selectedRegion!);
+    final ret = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return _PickerSheet<String>(
+          title: '스팟 선택',
+          options: options,
+          labelOf: (s) => s,
+          selected: _selectedSpot,
+        );
+      },
+    );
+    if (ret != null) {
+      setState(() {
+        _selectedSpot = ret;
+      });
+    }
+  }
+
+  // ---------- Build ----------
 
   @override
   Widget build(BuildContext context) {
@@ -319,6 +475,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
                 );
               },
             ),
+
           ),
         ),
       ),
@@ -355,7 +512,6 @@ class _FishingPointCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 제목 + 거리
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -444,6 +600,18 @@ class _Thumb extends StatelessWidget {
         child: Image.network(
           imageUrl,
           fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              color: const Color(0xFFEFF3F8),
+              alignment: Alignment.center,
+              child: const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          },
           errorBuilder: (_, __, ___) => Container(
             color: const Color(0xFFEFF3F8),
             alignment: Alignment.center,

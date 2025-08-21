@@ -31,7 +31,7 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
       }
     });
 
-    // 500ms마다 UI 갱신 (그래프 움직임 부드럽게)
+    // 500ms마다 UI 갱신 (표시 부드럽게)
     _uiTicker = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!mounted) return;
       setState(() {});
@@ -50,8 +50,10 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
       _bpm = bpm;
       _lastUpdate = now;
       _history.add(_HrPoint(now, bpm));
-      // 최근 60초만 유지
-      _history.removeWhere((p) => p.t.isBefore(now.subtract(const Duration(seconds: 60))));
+      // 최근 60초만 유지 (표시에는 사용 안 하지만 데이터 정리용으로 유지)
+      _history.removeWhere(
+            (p) => p.t.isBefore(now.subtract(const Duration(seconds: 60))),
+      );
     });
   }
 
@@ -61,7 +63,7 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
       body: SafeArea(
         child: Column(
           children: [
-            _Header(title: "심박수", subtitle: "워치 연결됨"),
+            const _Header(title: "심박수", subtitle: "워치 연결됨"),
             const SizedBox(height: 12),
             Expanded(
               child: Center(
@@ -71,7 +73,7 @@ class _WatchConnectPageState extends State<WatchConnectPage> {
                   loading: false,
                   lastUpdate: _lastUpdate,
                   onRefresh: null,
-                  history: _history,
+                  history: _history, // 호출부 호환용(미사용)
                 ),
               ),
             ),
@@ -121,7 +123,7 @@ class _HeartPanel extends StatelessWidget {
     required this.loading,
     required this.lastUpdate,
     required this.onRefresh,
-    required this.history,
+    required this.history, // 호출부 호환용(미사용)
   });
 
   final int bpm;
@@ -129,7 +131,7 @@ class _HeartPanel extends StatelessWidget {
   final bool loading;
   final DateTime? lastUpdate;
   final VoidCallback? onRefresh;
-  final List<_HrPoint> history;
+  final List<_HrPoint> history; // 미사용
 
   String _fmtAgo(DateTime? t) {
     if (t == null) return '—';
@@ -147,7 +149,7 @@ class _HeartPanel extends StatelessWidget {
 
     return Container(
       width: 320,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(24),
@@ -164,7 +166,7 @@ class _HeartPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 아이콘 + bpm
+          // 아이콘
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -174,11 +176,15 @@ class _HeartPanel extends StatelessWidget {
             child: const Icon(Icons.favorite, size: 36),
           ),
           const SizedBox(height: 14),
+
+          // 상태 텍스트
           Text(
             connected ? '현재 심박수' : (loading ? '연결 중…' : '워치를 연결해 주세요'),
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 6),
+
+          // 심박수 숫자만 강조
           Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -186,113 +192,32 @@ class _HeartPanel extends StatelessWidget {
               Text(
                 '${connected ? bpm : 0}',
                 style: theme.textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w900, height: 1.0,
+                  fontWeight: FontWeight.w900,
+                  height: 1.0,
+                  letterSpacing: -1.0,
                 ),
               ),
               const SizedBox(width: 6),
               Text('bpm', style: theme.textTheme.titleMedium),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+
+          // 업데이트 시각
           Text(
             '업데이트: ${_fmtAgo(lastUpdate)}',
             style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
-          const SizedBox(height: 16),
 
-          // 최근 60초 그래프
-          SizedBox(
-            height: 80,
-            width: double.infinity,
-            child: _Sparkline(history: history),
-          ),
+          // 그래프 제거(아래 여백만 살짝)
+          const SizedBox(height: 4),
         ],
       ),
     );
   }
 }
 
-/* ---------- 스파크라인 ---------- */
-
-class _Sparkline extends StatelessWidget {
-  const _Sparkline({required this.history});
-  final List<_HrPoint> history;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _SparkPainter(history: history, cs: Theme.of(context).colorScheme),
-      willChange: true,
-    );
-  }
-}
-
-class _SparkPainter extends CustomPainter {
-  _SparkPainter({required this.history, required this.cs});
-  final List<_HrPoint> history;
-  final ColorScheme cs;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final now = DateTime.now();
-    final cutoff = now.subtract(const Duration(seconds: 60));
-    final pts = history.where((p) => p.t.isAfter(cutoff)).toList();
-
-    _drawGrid(canvas, size);
-
-    if (pts.length < 2) return;
-
-    final minBpm = (pts.map((e) => e.bpm).reduce((a, b) => a < b ? a : b) - 5).clamp(40, 120);
-    final maxBpm = (pts.map((e) => e.bpm).reduce((a, b) => a > b ? a : b) + 5).clamp(50, 200);
-    final span = (maxBpm - minBpm).toDouble();
-
-    final path = Path();
-    for (var i = 0; i < pts.length; i++) {
-      final p = pts[i];
-      final dt = now.difference(p.t).inMilliseconds / 1000.0;
-      final x = size.width * (1 - (dt / 60.0));
-      final y = size.height * (1 - ((p.bpm - minBpm) / span));
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..color = cs.primary;
-    canvas.drawPath(path, paint);
-
-    // 마지막 점
-    final last = pts.last;
-    final dt = now.difference(last.t).inMilliseconds / 1000.0;
-    final x = size.width * (1 - (dt / 60.0));
-    final y = size.height * (1 - ((last.bpm - minBpm) / span));
-    canvas.drawCircle(Offset(x, y), 3.5, Paint()..color = cs.primary);
-  }
-
-  void _drawGrid(Canvas canvas, Size size) {
-    final grid = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = cs.onSurface.withOpacity(.06);
-
-    for (int i = 1; i <= 3; i++) {
-      final x = size.width * (i / 4);
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
-    }
-    canvas.drawLine(Offset(0, size.height * .33), Offset(size.width, size.height * .33), grid);
-    canvas.drawLine(Offset(0, size.height * .66), Offset(size.width, size.height * .66), grid);
-    canvas.drawRect(Offset.zero & size, grid);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SparkPainter oldDelegate) {
-    return oldDelegate.history != history;
-  }
-}
+/* ---------- 데이터 모델 ---------- */
 
 class _HrPoint {
   _HrPoint(this.t, this.bpm);
