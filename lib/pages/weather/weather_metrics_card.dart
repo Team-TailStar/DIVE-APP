@@ -27,17 +27,37 @@ class WeatherMetricsCard extends StatelessWidget {
     );
   }
 
-  Widget _divider() => Container(width: 1, height: 40, color: Colors.white.withOpacity(0.35));
+  Widget _divider() => Container(
+    width: 1,
+    height: 44,
+    color: Colors.white.withOpacity(0.4),
+  );
 
   Widget _mini(IconData icon, String label, String value) {
     return Expanded(
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white, size: 18),
+          Icon(icon, color: Colors.blue.shade700, size: 24), // 아이콘도 살짝 키움
           const SizedBox(height: 6),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.blue.shade800,
+              fontSize: 14, // 라벨 조금 키움
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.blueGrey.shade900,
+              fontSize: 15, // 값은 더 크게
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );

@@ -1,4 +1,4 @@
-// lib/pages/weather/weather_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
@@ -23,7 +23,6 @@ class WeatherPage extends StatefulWidget {
 }
 
 class _WeatherPageState extends State<WeatherPage> {
-  // ---- 내부 좌표 상태: 현재 위치 성공 시 교체, 실패면 서울 폴백 ----
   static const _seoulLat = 37.5665;
   static const _seoulLon = 126.9780;
 
@@ -33,10 +32,10 @@ class _WeatherPageState extends State<WeatherPage> {
   late Future<NowResponse> _nowF;
   late Future<List<Day7Item>> _day7F;
 
-  // 시/도 텍스트(대기질 API에도 사용) — 현재 위치 기준, 실패 시 “서울”
+
   late Future<String> _cityF;
 
-  // 공기질은 한 번만 받아서 공유
+
   late Future<AirQualitySummary> _airF;
 
   WeatherTab _tab = WeatherTab.today;
@@ -45,18 +44,14 @@ class _WeatherPageState extends State<WeatherPage> {
   void initState() {
     super.initState();
 
-    // 1) 위젯에서 온 좌표로 시작 (에뮬 기본좌표일 수 있음)
     _lat = widget.lat;
     _lon = widget.lon;
 
-    // 2) 일단 부트스트랩 (UI가 빨리 그려지도록)
     _bootstrap();
 
-    // 3) 현재 위치 시도 → 성공하면 좌표/도시 갱신, 실패하면 서울 폴백
     _fixLocationIfNeeded();
   }
 
-  // ----- Futures 세팅 공통 함수 -----
   void _bootstrap() {
     _nowF = WeatherApi.fetchNow(_lat, _lon);
     _day7F = WeatherApi.fetchDay7(_lat, _lon);
@@ -66,21 +61,16 @@ class _WeatherPageState extends State<WeatherPage> {
     );
   }
 
-  // ----- 현재 위치 교정 -----
   bool _isOutOfKorea(double lat, double lon) {
-    // 대략적인 한반도 바운딩박스
     return !(lat >= 33 && lat <= 39 && lon >= 124 && lon <= 132);
   }
 
   Future<void> _fixLocationIfNeeded() async {
     try {
-      // 위젯 좌표가 한국이면 그대로 사용
       if (!_isOutOfKorea(_lat, _lon)) return;
 
-      // 권한/서비스 체크
       final enabled = await Geolocator.isLocationServiceEnabled();
       if (!enabled) {
-        // 서비스 꺼져있으면 바로 서울 폴백
         _useSeoulFallbackIfNeeded();
         return;
       }
@@ -98,31 +88,27 @@ class _WeatherPageState extends State<WeatherPage> {
         return;
       }
 
-      // 현재 위치 취득
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // 좌표가 한국 밖이면 서울로 폴백
       if (_isOutOfKorea(pos.latitude, pos.longitude)) {
         _useSeoulFallbackIfNeeded();
         return;
       }
 
-      // 정상 좌표로 갱신
       setState(() {
         _lat = pos.latitude;
         _lon = pos.longitude;
         _bootstrap();
       });
     } catch (_) {
-      // 오류 시 폴백
       _useSeoulFallbackIfNeeded();
     }
   }
 
   void _useSeoulFallbackIfNeeded() {
-    if (_lat == _seoulLat && _lon == _seoulLon) return; // 이미 서울이면 패스
+    if (_lat == _seoulLat && _lon == _seoulLon) return;
     setState(() {
       _lat = _seoulLat;
       _lon = _seoulLon;
@@ -130,10 +116,8 @@ class _WeatherPageState extends State<WeatherPage> {
     });
   }
 
-  // ----- 역지오코딩: 시/도 라벨 (UI + 대기질 API용) -----
   Future<String> _resolveCity(double lat, double lon) async {
     try {
-      // 날씨 API가 city를 주는 경우 우선 사용
       final now = await _nowF;
       if ((now.city ?? '').trim().isNotEmpty) {
         return _shortenAdm(now.city!);
@@ -144,15 +128,15 @@ class _WeatherPageState extends State<WeatherPage> {
       final ps = await geo.placemarkFromCoordinates(
         lat,
         lon,
-        localeIdentifier: 'ko_KR', // 한글 행정명 강제
+        localeIdentifier: 'ko_KR',
       );
       if (ps.isNotEmpty) {
         final adminRaw = (ps.first.administrativeArea ?? '').trim();
         if (adminRaw.isNotEmpty) {
-          return _shortenAdm(adminRaw); // 서울특별시 → 서울, 경기도 → 경기
+          return _shortenAdm(adminRaw);
         }
       }
-    } catch (_) {/* ignore */}
+    } catch (_) {}
     return '서울';
   }
 
@@ -204,14 +188,12 @@ class _WeatherPageState extends State<WeatherPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 위치 라벨: 현재 위치 기반(실패 시 서울)
                             FutureBuilder<String>(
                               future: _cityF,
                               builder: (c, cs) => _location(cs.data ?? '서울'),
                             ),
                             const SizedBox(height: 6),
 
-                            // 상단 온도 + 공기질 한 줄
                             FutureBuilder<AirQualitySummary>(
                               future: _airF,
                               builder: (context, aq) {
@@ -226,7 +208,6 @@ class _WeatherPageState extends State<WeatherPage> {
 
                             if (_tab == WeatherTab.today) ...[
                               const SizedBox(height: 14),
-                              // 대기질 카드
                               FutureBuilder<AirQualitySummary>(
                                 future: _airF,
                                 builder: (context, aq) {
@@ -270,7 +251,6 @@ class _WeatherPageState extends State<WeatherPage> {
 
                             const SizedBox(height: 14),
 
-                            // 예보 섹션
                             FutureBuilder<List<Day7Item>>(
                               future: _day7F,
                               builder: (context, ds) {
@@ -321,7 +301,6 @@ class _WeatherPageState extends State<WeatherPage> {
     );
   }
 
-  // ---- UI bits ----
   Widget _location(String city) {
     return Row(
       children: [
@@ -332,7 +311,6 @@ class _WeatherPageState extends State<WeatherPage> {
     );
   }
 
-  // 공기질 한 줄(등급+농도)
   String _pmLabel(String? val) => (val == null) ? '-' : '$val㎍/㎥';
   String _gasLabel(String? val) => (val == null) ? '-' : '$val ppm';
 
@@ -375,22 +353,6 @@ class _WeatherPageState extends State<WeatherPage> {
             Icon(skyCodeToIcon(skyCode), size: 28, color: Colors.white),
           ],
         ),
-        // if (line1 != null) ...[
-        //   const SizedBox(height: 6),
-        //   Text(
-        //     line1!,
-        //     textAlign: TextAlign.center,
-        //     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
-        //   ),
-        // ],
-        // if (line2 != null) ...[
-        //   const SizedBox(height: 2),
-        //   Text(
-        //     line2!,
-        //     textAlign: TextAlign.center,
-        //     style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
-        //   ),
-        // ],
       ],
     );
   }
