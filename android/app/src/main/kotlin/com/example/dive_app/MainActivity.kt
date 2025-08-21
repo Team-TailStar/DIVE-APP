@@ -19,10 +19,11 @@ import com.example.dive_app.api.WeatherApi
 import com.example.dive_app.api.TideApi
 import com.example.dive_app.api.FishingPointApi
 import com.example.dive_app.api.TyphoonApi
-import com.example.dive_app.api.TyphoonAlertManager
+import com.example.dive_app.manager.TyphoonAlertManager
+import com.example.dive_app.manager.WeatherAlertManager
+import com.example.dive_app.manager.TideAlertManager
 import io.flutter.plugin.common.MethodChannel
 import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import java.util.concurrent.TimeUnit
 import androidx.work.WorkManager
@@ -34,6 +35,8 @@ import kotlin.coroutines.resume
 import com.google.android.gms.location.Priority
 import androidx.core.app.NotificationCompat
 import com.example.dive_app.worker.TyphoonWorker
+import com.example.dive_app.worker.WeatherWorker
+import com.example.dive_app.worker.TideWorker
 import com.example.dive_app.util.getCurrentLocation
 
 class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener {
@@ -53,10 +56,14 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         }
 
         // 🚨 테스트 알림 (워치에서 알림 뜨는지 확인용)
-        TyphoonAlertManager.sendTestAlert(this@MainActivity)
+        //TyphoonAlertManager.sendTestAlert(this@MainActivity)
+        //WeatherAlertManager.sendTestAlert(this@MainActivity)
+        TideAlertManager.sendTestAlert(this)
 
         // 3시간마다 주기 실행
         scheduleTyphoonWorker(this)
+        scheduleWeatherWorker(this)
+        scheduleTideWorker(this)
     }
 
     private fun scheduleTyphoonWorker(context: Context) {
@@ -69,13 +76,33 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         )
     }
 
+    private fun scheduleWeatherWorker(context: Context) {
+        val request = PeriodicWorkRequestBuilder<WeatherWorker>(1, TimeUnit.HOURS).build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "WeatherCheck",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
+    }
+
+    private fun scheduleTideWorker(context: Context) {
+        val request = PeriodicWorkRequestBuilder<TideWorker>(1, TimeUnit.HOURS).build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "TideCheck",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
+    }
+
     // ✅ keep a single onResume
     override fun onResume() {
         super.onResume()
         Wearable.getMessageClient(this).addListener(this)
 
         // 앱 실행 시 테스트 1회 (워치 없이도 확인)
-        debugTyphoonOnce()
+        //debugTyphoonOnce()
 
         // (기존 동작) 워치에 심박수 요청
         replyToWatch("/request_heart_rate", "request")
