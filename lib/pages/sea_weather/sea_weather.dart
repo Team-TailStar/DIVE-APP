@@ -13,8 +13,6 @@ import 'package:dive_app/pages/ui/aq_theme.dart';
 import 'package:dive_app/pages/ui/aq_widget.dart';
 import 'dart:math' as math;
 
-/// 이동 콜백 타입
-typedef MoveToCallback = void Function(String label, double lat, double lon);
 
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
@@ -166,12 +164,6 @@ class _SeaWeatherPageState extends State<SeaWeatherPage> {
                 key: ValueKey('temp-${_region.lat},${_region.lon}'),
                 lat: _region.lat,
                 lon: _region.lon,
-                onMoveTo: (label, lat, lon) {
-                  // 관측소로 이동
-                  setState(() {
-                    _region = RegionItem(label, lat, lon);
-                  });
-                },
               ),
           ],
         ),
@@ -431,15 +423,9 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
 // ─────────────────────────────── 수온 섹션 ───────────────────────────────
 
 class _TempSection extends StatefulWidget {
-  const _TempSection({
-    super.key,
-    required this.lat,
-    required this.lon,
-    required this.onMoveTo,
-  });
+  const _TempSection({super.key, required this.lat, required this.lon});
   final double lat;
   final double lon;
-  final MoveToCallback onMoveTo;
 
   @override
   State<_TempSection> createState() => _TempSectionState();
@@ -871,7 +857,7 @@ class _ForecastBlock extends StatelessWidget {
   List<Widget> _buildGrouped(List<_ForecastRowData> rows) {
     final List<Widget> cards = [];
     String? currentDate;
-    final List<_ForecastRowData> bucket = [];
+    List<_ForecastRowData> bucket = [];
 
     void flush() {
       if (bucket.isEmpty) return;
@@ -1061,7 +1047,6 @@ class _CompareRowWhite extends StatelessWidget {
   final bool trendUp;
   final String temp;
   final String dist;
-  final VoidCallback onMove;
 
 
   const _CompareRowWhite({required this.place, required this.trendUp, required this.temp, required this.dist});
@@ -1109,7 +1094,7 @@ class _CompareRowWhite extends StatelessWidget {
             flex: 3,
             child: Center(
               child: OutlinedButton(
-                onPressed: onMove,
+                onPressed: () {},
                 style: OutlinedButton.styleFrom(
 
                   side: BorderSide(color: Colors.white.withOpacity(0.8)),
@@ -1437,7 +1422,6 @@ class SeaStationTemp {
   final DateTime obsTime;
   final double tempC;
   final double? distanceKm;
-
 
   SeaStationTemp({required this.name, required this.obsTime, required this.tempC, this.distanceKm});
 
