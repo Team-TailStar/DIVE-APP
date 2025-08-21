@@ -1,4 +1,4 @@
-package com.example.dive_app.api
+package com.example.dive_app.manager
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,6 +14,7 @@ import kotlin.math.*
 import org.json.JSONObject
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.Node
+import com.example.dive_app.api.TyphoonApi
 
 object TyphoonAlertManager {
 
