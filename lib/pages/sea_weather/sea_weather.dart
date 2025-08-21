@@ -13,6 +13,7 @@ import 'package:dive_app/pages/ui/aq_theme.dart';
 import 'package:dive_app/pages/ui/aq_widget.dart';
 import 'dart:math' as math;
 
+
 class SeaWeatherPage extends StatefulWidget {
   const SeaWeatherPage({super.key});
 
@@ -200,6 +201,7 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
   void didUpdateWidget(covariant _WaveSectionApi oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.lat != widget.lat || oldWidget.lon != widget.lon) {
+
       setState(() {
         loading = true;
         error = null;
@@ -300,9 +302,11 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
       );
     }
     if (error != null) {
+
       return const AqCard(
         padding: EdgeInsets.all(16),
         child: Text('불러오기 실패'),
+
       );
     }
     if (waves.isEmpty) {
@@ -344,6 +348,7 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Center(
+
           child: Text(
             _formatKDate(today),
             style: const TextStyle(
@@ -388,6 +393,7 @@ class _WaveSectionApiState extends State<_WaveSectionApi> {
             ],
           ),
         ),
+
         const SizedBox(height: 16),
 
         // 리스트 헤더
@@ -442,6 +448,7 @@ class _TempSectionState extends State<_TempSection> {
   void didUpdateWidget(covariant _TempSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.lat != widget.lat || oldWidget.lon != widget.lon) {
+
       setState(() {
         loading = true;
         error = null;
@@ -516,9 +523,11 @@ class _TempSectionState extends State<_TempSection> {
       );
     }
     if (error != null) {
+
       return const AqCard(
         padding: EdgeInsets.all(16),
         child: Text('불러오기 실패'),
+
       );
 
     }
@@ -537,6 +546,7 @@ class _TempSectionState extends State<_TempSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Center(
+
           child: Text(
             _formatKDate(today),
             style: const TextStyle(
@@ -560,6 +570,7 @@ class _TempSectionState extends State<_TempSection> {
                 final th = Theme.of(context).extension<AqCardTheme>() ?? AqCardTheme.light();
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+
                   decoration: BoxDecoration(
                     color: th.tileBg,
                     borderRadius: BorderRadius.circular(12),
@@ -588,6 +599,7 @@ class _TempSectionState extends State<_TempSection> {
                     ),
                     child: const _MiniLineChart(gridColor: Color(0x332E5BFF),lineColor: Color(0xFF2E5BFF),),
                   ),
+
                 );
               }),
 
@@ -606,6 +618,7 @@ class _TempSectionState extends State<_TempSection> {
                   child: const Text(
                     '인근 바다와 수온 비교해보기',
                     style: TextStyle(decoration: TextDecoration.underline),
+
                   ),
                 ),
               ),
@@ -659,6 +672,7 @@ class _TempSectionState extends State<_TempSection> {
             }),
           )
         else
+
           Builder(builder: (context) {
             // 수온 요약 계산
             final minStation = stations.reduce((a, b) => a.tempC <= b.tempC ? a : b);
@@ -687,6 +701,7 @@ class _TempSectionState extends State<_TempSection> {
                     unit: '°C',
                     metricText: avgTemp.toStringAsFixed(1),
                     footnote: '관측소 ${stations.length}개',
+
                   ),
                 ],
               ),
@@ -697,6 +712,7 @@ class _TempSectionState extends State<_TempSection> {
     );
   }
 }
+
 
 // ─────────────────────────────── 공통(WeatherPage 톤) 위젯 ───────────────────────────────
 
@@ -820,6 +836,7 @@ class _ForecastBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     final th = Theme.of(context).extension<AqCardTheme>() ?? AqCardTheme.light();
 
     return AqCard(
@@ -832,6 +849,7 @@ class _ForecastBlock extends StatelessWidget {
           const SizedBox(height: 10),
           ..._buildGrouped(rows),
         ],
+
       ),
     );
   }
@@ -877,6 +895,7 @@ class _WaveDayTile extends StatelessWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 8, bottom: 6),
@@ -928,6 +947,7 @@ class _WaveDayTile extends StatelessWidget {
                     horizontalInside: BorderSide(
                       color: th.cardBorder.withOpacity(0.9),
                       width: 1,
+
                     ),
                   ),
                   columnWidths: const {
@@ -1028,7 +1048,9 @@ class _CompareRowWhite extends StatelessWidget {
   final String temp;
   final String dist;
 
+
   const _CompareRowWhite({required this.place, required this.trendUp, required this.temp, required this.dist});
+
 
   @override
   Widget build(BuildContext context) {
@@ -1074,10 +1096,12 @@ class _CompareRowWhite extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: () {},
                 style: OutlinedButton.styleFrom(
+
                   side: BorderSide(color: Colors.white.withOpacity(0.8)),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+
                 ),
                 child: const Text('이동'),
               ),
@@ -1089,6 +1113,7 @@ class _CompareRowWhite extends StatelessWidget {
   }
 }
 
+
 // ─────────────────────────────── 유틸/모델/그래프(기존 유지) ───────────────────────────────
 
 class _ForecastRowData {
@@ -1098,6 +1123,7 @@ class _ForecastRowData {
   final String height;
   final String dir;
   const _ForecastRowData({required this.date, required this.amPm, required this.period, required this.height, required this.dir});
+
 }
 
 class _MiniLineChart extends StatelessWidget {
@@ -1121,6 +1147,7 @@ class _MiniLineChart extends StatelessWidget {
         final double w = constraints.maxWidth.isFinite ? constraints.maxWidth : 300.0;
         final double h = constraints.maxHeight.isFinite ? constraints.maxHeight : 150.0;
         return CustomPaint(
+
           size: Size(w, h),
           painter: _MiniLinePainter(
             secondary: secondary,
@@ -1129,6 +1156,7 @@ class _MiniLineChart extends StatelessWidget {
             secondaryLineColor: secondaryLineColor,
           ),
         );
+
       },
     );
   }
@@ -1379,11 +1407,13 @@ class SeaWave {
     final dir = (_pick<String>(j, ['wavedir', 'dir']) ?? '').toString().toUpperCase();
 
     return SeaWave(
+
       time: dt,
       wavePrd: prd,
       waveHt: ht,
       waveDir: dir.isEmpty ? '-' : dir,
     );
+
   }
 }
 
@@ -1394,6 +1424,7 @@ class SeaStationTemp {
   final double? distanceKm;
 
   SeaStationTemp({required this.name, required this.obsTime, required this.tempC, this.distanceKm});
+
 
   static String _norm(String k) {
     final r = RegExp(r'[A-Za-z_]');
@@ -1421,14 +1452,18 @@ class SeaStationTemp {
     final obsTime = DateTime.tryParse(t.replaceFirst(' ', 'T')) ?? DateTime.now();
 
     final rawTemp = _pick(j, [
+
       'obs_wt', 'sst', 'sea_temperature', 'seatemperature', 'water_temp', 'watertemp', 'temp_c', 'temp',
+
     ]);
     final tempC = _toDouble(rawTemp);
 
     final dt = (j['obs_dt'] ?? j['distance'] ?? '').toString();
     final distanceKm = double.tryParse(dt.replaceAll('km', '').replaceAll('㎞', '').trim());
 
+
     return SeaStationTemp(name: name, obsTime: obsTime, tempC: tempC, distanceKm: distanceKm);
+
   }
 }
 

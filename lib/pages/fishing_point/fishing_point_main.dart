@@ -13,6 +13,7 @@ import '../../env.dart';
 // 위치 선택용 지역 피커
 import '../sea_weather/region_picker.dart' as rp;
 
+
 class FishingPointMainPage extends StatefulWidget {
   const FishingPointMainPage({super.key});
 
@@ -21,7 +22,8 @@ class FishingPointMainPage extends StatefulWidget {
 }
 
 class _FishingPointMainPageState extends State<FishingPointMainPage> {
-  // ✅ 현재/선택 위치
+
+
   double? _myLat;
   double? _myLon;
   String _regionTitle = '낚시포인트'; // 앱바 타이틀에 표기
@@ -36,6 +38,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
 
   static const _fallbackImg =
       'https://images.unsplash.com/photo-1508182311256-e3f6b475a2e4?auto=format&fit=crop&w=1080&q=80';
+
 
   bool _loading = true;
   String? _error;
@@ -113,7 +116,9 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
       final list =
       (body['fishing_point'] as List).cast<Map<String, dynamic>>();
 
+
       final parsed = list.map<FishingPoint>((j) => _toModel(j)).toList();
+
 
       // ✅ 내/선택 위치 기준 정렬
       parsed.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
@@ -319,6 +324,7 @@ class _FishingPointMainPageState extends State<FishingPointMainPage> {
                 );
               },
             ),
+
           ),
         ),
       ),
