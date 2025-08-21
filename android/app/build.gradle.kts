@@ -5,6 +5,7 @@ val localProps = gradleLocalProperties(rootDir, providers)
 val airKey: String = localProps.getProperty("AIRKOREA_SERVICE_KEY") ?: ""
 val base: String = localProps.getProperty("API_BASE_URL") ?: ""
 val bada: String = localProps.getProperty("BADA_SERVICE_KEY") ?: ""
+val typhoon: String = localProps.getProperty("DATA_GO_KR_SERVICE_KEY") ?: ""
 
 plugins {
     id("com.android.application")
@@ -23,6 +24,9 @@ android {
         buildConfigField("String", "AIRKOREA_SERVICE_KEY", "\"$airKey\"")
         buildConfigField("String", "API_BASE_URL", "\"$base\"")
         buildConfigField("String", "BADA_SERVICE_KEY", "\"$bada\"")
+        buildConfigField("String", "DATA_GO_KR_SERVICE_KEY", "\"$typhoon\"")
+
+
         minSdk = 23
         targetSdk = 35
 
