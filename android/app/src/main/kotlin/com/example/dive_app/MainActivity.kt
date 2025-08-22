@@ -41,6 +41,10 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        (context as MainActivity).assets.list("")?.forEach {
+            Log.d("Assets", "file: $it")
+        }
+
         // 앱 시작 시 1회: 태풍 위험 체크 (샘플)
        lifecycleScope.launch(Dispatchers.IO) {
             val coords = getCurrentLocation(this@MainActivity)
