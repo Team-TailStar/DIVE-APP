@@ -42,13 +42,13 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         super.onCreate(savedInstanceState)
 
         // 앱 시작 시 1회: 태풍 위험 체크 (샘플)
-       // lifecycleScope.launch(Dispatchers.IO) {
-            //val coords = getCurrentLocation(this@MainActivity)
-            //if (coords != null) {
-               // val (lat, lon) = coords
-               // TyphoonAlertManager.checkTyphoonAlert(this@MainActivity, lat, lon)
-           // }
-     //   }
+       lifecycleScope.launch(Dispatchers.IO) {
+            val coords = getCurrentLocation(this@MainActivity)
+            if (coords != null) {
+               val (lat, lon) = coords
+                TyphoonAlertManager.checkTyphoonAlert(this@MainActivity, lat, lon)
+           }
+       }
 
         // 테스트 알림 (원하면 주석 해제)
         //TyphoonAlertManager.sendTestAlert(this@MainActivity)
