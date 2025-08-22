@@ -48,7 +48,8 @@ object WeatherAlertManager {
 
     private fun sendAlertToWatch(context: Context, message: String) {
         val alertJson = JSONObject().apply {
-            put("weather_alert", message)
+            put("title", "기상 경고")
+            put("message", message)
         }.toString()
 
         Wearable.getNodeClient(context).connectedNodes
@@ -62,7 +63,8 @@ object WeatherAlertManager {
 
     fun sendTestAlert(context: Context) {
         val json = JSONObject().apply {
-            put("weather_alert", "테스트 기후 이상 알림")
+            put("title", "기상 경고")
+            put("message", "폭염 주의 (기온 34℃)\n강풍 주의 (풍속 11m/s)")
         }
 
         Wearable.getNodeClient(context).connectedNodes

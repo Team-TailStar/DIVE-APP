@@ -15,7 +15,7 @@ import kotlin.math.max
 
 object AccidentAlertManager {
     private const val TAG = "AccidentAlertManager"
-    private const val WATCH_PATH = "/alert_accident"
+    private const val WATCH_PATH = "/accident_alert"
 
     // simple spam control
     private const val PREFS = "accident_alert_prefs"
@@ -75,16 +75,15 @@ object AccidentAlertManager {
                 return
             }
 
-            val message = "⚠️ ${eunneun(topType)} 위험한 지역입니다"
-            val payload = basePayload(
-                type = "accident",
-                region = displayRegion,
-                placeType = topType,
-                accidents = topAcc,
-                message = message
-            )
+            val title = "연안사고 위험 알림"
+            val message = "${displayRegion} · ${topType} (사고 ${topAcc}건)\n안전에 주의하세요."
 
+            val payload = JSONObject().apply {
+                put("title", title)
+                put("message", message)
+            }
             sendToWatch(context, payload)
+
         } catch (e: Exception) {
             Log.e(TAG, "❌ checkAndNotify failed", e)
         }
@@ -97,12 +96,8 @@ object AccidentAlertManager {
         val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(Date())
 
         val json = JSONObject().apply {
-            put("type", "accident_test")
-            put("region", "테스트 지역")
-            put("place_se", "갯바위")
-            put("accidents", 12)
-            put("message", "테스트 사고 알림 - 갯바위는 위험 주의")
-            put("timestamp", ts)
+            put("title", "연안사고 위험 알림")
+            put("message", "부산 해운대구 · 갯바위 (사고 12건)\n안전에 주의하세요.")
         }
 
         sendToWatch(context, json)

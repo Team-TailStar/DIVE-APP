@@ -33,6 +33,9 @@ import com.example.dive_app.worker.TideWorker
 import com.example.dive_app.worker.AccidentWorker
 import com.example.dive_app.util.getCurrentLocation
 import com.example.dive_app.manager.AccidentAlertManager
+import androidx.work.WorkInfo
+import androidx.work.WorkQuery
+
 
 class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener {
 
@@ -51,20 +54,33 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
             if (coords != null) {
                val (lat, lon) = coords
                 TyphoonAlertManager.checkTyphoonAlert(this@MainActivity, lat, lon)
+                WeatherAlertManager.checkWeatherAlert(this@MainActivity, lat, lon)
+                TideAlertManager.checkTideAlert(this@MainActivity, lat, lon)
+                AccidentAlertManager.checkAndNotify(this@MainActivity, lat, lon)
            }
        }
 
         // 테스트 알림 (원하면 주석 해제)
-        TyphoonAlertManager.sendTestAlert(this@MainActivity)
+        //TyphoonAlertManager.sendTestAlert(this@MainActivity)
         //WeatherAlertManager.sendTestAlert(this@MainActivity)
         //TideAlertManager.sendTestAlert(this@MainActivity)
-        //AccidentAlertManager.sendTestAlert(this@MainActivity)
+        AccidentAlertManager.sendTestAlert(this@MainActivity)
 
         // 주기 워커
         scheduleTyphoonWorker(this)
         scheduleWeatherWorker(this)
         scheduleTideWorker(this)
         scheduleAccidentWorker(this)
+
+        val workManager = WorkManager.getInstance(context)
+
+        val query = WorkQuery.fromStates(WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED)
+        workManager.getWorkInfosLiveData(query)
+            .observe(this) { workInfos ->
+                for (info in workInfos) {
+                    Log.d("WorkCheck", "id=${info.id}, state=${info.state}, tags=${info.tags}")
+                }
+            }
     }
 
     private fun scheduleTyphoonWorker(context: Context) {

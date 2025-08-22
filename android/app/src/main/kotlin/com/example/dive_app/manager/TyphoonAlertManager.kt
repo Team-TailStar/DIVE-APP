@@ -96,7 +96,8 @@ object TyphoonAlertManager {
             Log.d(TEST_TAG, "nearest=$name km=${"%.1f".format(nearestKm)}")
 
             if (nearestKm <= ALERT_KM) {
-                sendToWatch(context, name, nearestKm)
+                val alertJson = buildTyphoonAlert(nearest)
+                sendToWatch(context, alertJson)
                 if (alsoNotifyPhone) {
                     postPhoneNotification(context, name, nearestKm)
                 }
@@ -114,8 +115,8 @@ object TyphoonAlertManager {
      */
     fun sendTestAlert(context: Context) {
         val payload = JSONObject().apply {
-            put("typhoon", "태풍 테스트 알림")
-            put("distance", 123.4)
+            put("title", "태풍 링링 경보")
+            put("message", "현재 일본 가고시마 동북동쪽 약 90 km 부근 육상\n중심 풍속 15m/s, 이동 ENE 방향(14km/h), 기압 1006hPa.\n\n이 태풍은 오늘(22일) 03시경 열대저압부로 약화되었으며, 이것으로 제12호 태풍 링링(LINGLING)에 대한 정보를 종료함.")
         }.toString()
 
         Log.d(TEST_TAG, "sendTestAlert payload=$payload")
@@ -135,14 +136,31 @@ object TyphoonAlertManager {
             }
     }
 
+    private fun buildTyphoonAlert(obj: JSONObject): JSONObject {
+        val name = obj.optString("typName", "태풍")
+        val en = obj.optString("typEn", "")
+        val loc = obj.optString("typLoc", "")
+        val ws = obj.optInt("typWs", 0)
+        val sp = obj.optInt("typSp", 0)
+        val dir = obj.optString("typDir", "")
+        val ps = obj.optInt("typPs", 0)
+        val rem = obj.optString("rem", "")
+
+        val title = "태풍 $name 경보"
+        val message = "현재 $loc\n" +
+                "중심 풍속 ${ws}m/s, 이동 $dir 방향(${sp}km/h), 기압 ${ps}hPa.\n\\n" +
+                rem.replace("|", "\n")
+
+        return JSONObject().apply {
+            put("title", title)
+            put("message", message.trim())
+        }
+    }
+
     // --- Helpers ---
 
-    private suspend fun sendToWatch(context: Context, typhoonName: String, distanceKm: Double) {
-        val payload = JSONObject().apply {
-            put("typhoon", typhoonName)
-            put("distance", distanceKm)
-        }.toString()
-
+    private suspend fun sendToWatch(context: Context, alertJson: JSONObject) {
+        val payload = alertJson.toString()
         val nodes = Wearable.getNodeClient(context).connectedNodes.await()
         Log.d(TEST_TAG, "sending to ${nodes.size} node(s): $payload")
 

@@ -55,9 +55,13 @@ object TideAlertManager {
         }
     }
 
-    private fun sendAlertToWatch(context: Context, message: String) {
+    private fun sendAlertToWatch(context: Context, raw: String) {
+        val title = "만조 임박 알림"
+        val message = "예상 시간: $raw\n안전사고에 주의하세요."
+
         val alertJson = JSONObject().apply {
-            put("tide_alert", "만조 임박: $message")
+            put("title", title)
+            put("message", message)
         }.toString()
 
         Wearable.getNodeClient(context).connectedNodes
@@ -71,7 +75,8 @@ object TideAlertManager {
 
     fun sendTestAlert(context: Context) {
         val json = JSONObject().apply {
-            put("tide_alert", "테스트 물때 알림 - 만조 임박")
+            put("title", "만조 임박 알림")
+            put("message", "예상시간: 07:06 (81) ▲+54\n안전사고에 주의하세요.")
         }
 
         Wearable.getNodeClient(context).connectedNodes
