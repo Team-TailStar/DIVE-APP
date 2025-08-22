@@ -9,7 +9,6 @@ import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.location.LocationServices
 import org.json.JSONObject
-import org.json.JSONArray
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,17 +26,13 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import java.util.concurrent.TimeUnit
 import androidx.work.WorkManager
-import androidx.work.CoroutineWorker
-import androidx.work.WorkerParameters
 import android.content.Context
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
-import com.google.android.gms.location.Priority
-import androidx.core.app.NotificationCompat
 import com.example.dive_app.worker.TyphoonWorker
 import com.example.dive_app.worker.WeatherWorker
 import com.example.dive_app.worker.TideWorker
+import com.example.dive_app.worker.AccidentWorker
 import com.example.dive_app.util.getCurrentLocation
+import com.example.dive_app.manager.AccidentAlertManager
 
 class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener {
 
@@ -46,7 +41,7 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 앱 시작 시 1회 실행
+        // 앱 시작 시 1회: 태풍 위험 체크 (샘플)
         lifecycleScope.launch(Dispatchers.IO) {
             val coords = getCurrentLocation(this@MainActivity)
             if (coords != null) {
@@ -55,20 +50,20 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
             }
         }
 
-        // 🚨 테스트 알림 (워치에서 알림 뜨는지 확인용)
+        // 테스트 알림 (원하면 주석 해제)
         //TyphoonAlertManager.sendTestAlert(this@MainActivity)
         //WeatherAlertManager.sendTestAlert(this@MainActivity)
-        TideAlertManager.sendTestAlert(this)
+        //TideAlertManager.sendTestAlert(this@MainActivity)
 
-        // 3시간마다 주기 실행
+        // 주기 워커
         scheduleTyphoonWorker(this)
         scheduleWeatherWorker(this)
         scheduleTideWorker(this)
+        scheduleAccidentWorker(this) // ⬅️ 위험지역 워커
     }
 
     private fun scheduleTyphoonWorker(context: Context) {
         val request = PeriodicWorkRequestBuilder<TyphoonWorker>(30, TimeUnit.MINUTES).build()
-
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "TyphoonCheck",
             ExistingPeriodicWorkPolicy.UPDATE,
@@ -78,7 +73,6 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
     private fun scheduleWeatherWorker(context: Context) {
         val request = PeriodicWorkRequestBuilder<WeatherWorker>(1, TimeUnit.HOURS).build()
-
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "WeatherCheck",
             ExistingPeriodicWorkPolicy.UPDATE,
@@ -88,9 +82,17 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
 
     private fun scheduleTideWorker(context: Context) {
         val request = PeriodicWorkRequestBuilder<TideWorker>(1, TimeUnit.HOURS).build()
-
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "TideCheck",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
+    }
+
+    private fun scheduleAccidentWorker(context: Context) {
+        val request = PeriodicWorkRequestBuilder<AccidentWorker>(1, TimeUnit.HOURS).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "AccidentCheck",
             ExistingPeriodicWorkPolicy.UPDATE,
             request
         )
@@ -100,11 +102,7 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
     override fun onResume() {
         super.onResume()
         Wearable.getMessageClient(this).addListener(this)
-
-        // 앱 실행 시 테스트 1회 (워치 없이도 확인)
-        //debugTyphoonOnce()
-
-        // (기존 동작) 워치에 심박수 요청
+        // 기존 동작: 워치에 심박수 요청
         replyToWatch("/request_heart_rate", "request")
     }
 
@@ -122,7 +120,6 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                 Log.d("PhoneMsg", "📩 워치에서 미세먼지 요청 수신")
                 lifecycleScope.launch(Dispatchers.IO) {
                     try {
-                        // ❗️fix: use this@MainActivity instead of 'context'
                         val res = AirKoreaApi.fetchAirQualityByLocation(this@MainActivity)
                         if (res != null) {
                             replyToWatch("/response_air_quality", res.toString())
@@ -180,6 +177,20 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                     }
                 }
             }
+
+            // ⬇️ 위험지역 즉시 체크 요청 (워치에서 보내면 바로 알림)
+            "/request_accident_alert" -> {
+                Log.d("PhoneMsg", "AccidentAlertTest: /request_accident_alert received")
+                lifecycleScope.launch(Dispatchers.IO) {
+                    AccidentAlertManager.checkAndNotify(
+                        context = this@MainActivity,
+                        threshold = 10,
+                        cooldownMinutes = 0,  // 테스트 시 중복 제한 없애기
+                        dryRun = false        // true로 두면 전송 대신 로그만
+                    )
+                }
+            }
+
             "/response_heart_rate" -> {
                 Log.d("PhoneMsg", "📩 워치에서 심박수 수신")
                 try {
@@ -219,7 +230,6 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                 val to = LocalDate.now()
                 val from = to.minusDays(2)
                 val items = TyphoonApi.fetchTyphoonInfo(from, to, pageNo = 1, numOfRows = 100)
-
                 Log.d("TyphoonTest", "count=${items.length()}")
                 if (items.length() > 0) {
                     Log.d("TyphoonTest", "first=${items.getJSONObject(0)}")
