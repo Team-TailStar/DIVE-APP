@@ -3,29 +3,16 @@ package com.example.dive_app.manager
 import android.content.Context
 import android.location.Geocoder
 import android.util.Log
-import androidx.work.CoroutineWorker
-import androidx.work.WorkerParameters
 import com.example.dive_app.CoastalAccidentRepo
 import com.example.dive_app.util.getCurrentLocation
+import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.Wearable
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.Date
+import java.util.*
 import kotlin.math.max
 
-/**
- * Accident alerts to Wear OS — refactored in the same style as your tide alert manager.
- * - Adds sendTestAlert()
- * - Adds strong logging ("AccidentAlertTest: …")
- * - Extracts sendToWatch() helper
- * - Geocoder work moved onto Dispatchers.IO
- * - Optional WorkManager worker (AccidentWorker) logs when started
- */
 object AccidentAlertManager {
     private const val TAG = "AccidentAlertManager"
     private const val WATCH_PATH = "/alert_accident"
@@ -37,126 +24,112 @@ object AccidentAlertManager {
     private const val KEY_LAST_TYPE = "last_type"
 
     /**
-     * Query accident stats for the current (or provided) location and notify the watch
-     * if the top accident type in the region exceeds [threshold].
+     * 실제 사고 정보 확인 후 알림 전송
      */
     suspend fun checkAndNotify(
         context: Context,
         lat: Double? = null,
         lon: Double? = null,
         threshold: Int = 10,
-        cooldownMinutes: Int = 120,
-        dryRun: Boolean = false
-    ): JSONObject? = withContext(Dispatchers.IO) {
-        Log.d(TAG, "AccidentAlertTest: checkAndNotify threshold=$threshold cooldown=$cooldownMinutes dryRun=$dryRun")
+        cooldownMinutes: Int = 120
+    ) {
+        try {
+            CoastalAccidentRepo.ensureLoaded(context)
 
-        CoastalAccidentRepo.ensureLoaded(context)
+            val coords = lat?.let { it to requireNotNull(lon) } ?: getCurrentLocation(context)
+            val (useLat, useLon) = coords ?: (37.5665 to 126.9780)
 
-        val coords = lat?.let { it to requireNotNull(lon) } ?: getCurrentLocation(context)
-        val (useLat, useLon) = coords ?: (37.5665 to 126.9780)
-
-        val (regionKey, displayRegion) = regionFromLocationIO(context, useLat, useLon)
-        if (regionKey.isBlank()) {
-            Log.w(TAG, "AccidentAlertTest: empty region (lat=$useLat, lon=$useLon)")
-            return@withContext null
-        }
-
-        val json = CoastalAccidentRepo.queryByRegion(regionKey, null)
-        val byType = json.optJSONObject("summary")?.optJSONArray("by_type") ?: JSONArray()
-        if (byType.length() == 0) {
-            Log.d(TAG, "AccidentAlertTest: no rows for $regionKey ($displayRegion)")
-            return@withContext null
-        }
-
-        var topType = ""
-        var topAcc = 0
-        for (i in 0 until byType.length()) {
-            val o = byType.getJSONObject(i)
-            val acc = o.optInt("accidents", 0)
-            if (acc > topAcc) {
-                topAcc = acc
-                topType = o.optString("place_se_nm")
+            val (regionKey, displayRegion) = regionFromLocation(context, useLat, useLon)
+            if (regionKey.isBlank()) {
+                Log.w(TAG, "⚠️ empty region (lat=$useLat, lon=$useLon)")
+                return
             }
+
+            val json = CoastalAccidentRepo.queryByRegion(regionKey, null)
+            val byType = json.optJSONObject("summary")?.optJSONArray("by_type") ?: JSONArray()
+            if (byType.length() == 0) {
+                Log.d(TAG, "no rows for $regionKey ($displayRegion)")
+                return
+            }
+
+            var topType = ""
+            var topAcc = 0
+            for (i in 0 until byType.length()) {
+                val o = byType.getJSONObject(i)
+                val acc = o.optInt("accidents", 0)
+                if (acc > topAcc) {
+                    topAcc = acc
+                    topType = o.optString("place_se_nm")
+                }
+            }
+
+            Log.d(TAG, "region=$displayRegion topType=$topType topAcc=$topAcc")
+
+            if (topAcc < threshold) {
+                Log.d(TAG, "below threshold $topAcc < $threshold @ $displayRegion")
+                return
+            }
+
+            if (!checkCooldown(context, displayRegion, topType, cooldownMinutes)) {
+                Log.d(TAG, "cooldown active for $displayRegion / $topType")
+                return
+            }
+
+            val message = "⚠️ ${eunneun(topType)} 위험한 지역입니다"
+            val payload = basePayload(
+                type = "accident",
+                region = displayRegion,
+                placeType = topType,
+                accidents = topAcc,
+                message = message
+            )
+
+            sendToWatch(context, payload)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ checkAndNotify failed", e)
         }
-
-        Log.d(TAG, "AccidentAlertTest: region=$displayRegion topType=$topType topAcc=$topAcc")
-
-        if (topAcc < threshold) {
-            Log.d(TAG, "AccidentAlertTest: below threshold $topAcc < $threshold @ $displayRegion")
-            return@withContext null
-        }
-
-        if (!checkCooldown(context, displayRegion, topType, cooldownMinutes)) {
-            Log.d(TAG, "AccidentAlertTest: cooldown active for $displayRegion / $topType")
-            return@withContext null
-        }
-
-        val message = "⚠️ ${eunneun(topType)} 위험한 지역입니다"
-        val payload = basePayload(
-            type = "accident",
-            region = displayRegion,
-            placeType = topType,
-            accidents = topAcc,
-            message = message
-        )
-
-        sendToWatch(context, payload, dryRun)
-        return@withContext payload
     }
 
     /**
-     * Manual test alert. Uses a simple payload and can run in DRYRUN mode.
+     * 수동 테스트 알림 전송
      */
-    suspend fun sendTestAlert(
-        context: Context,
-        region: String? = null,
-        placeType: String? = null,
-        accidents: Int = 12,
-        dryRun: Boolean = true
-    ): JSONObject = withContext(Dispatchers.IO) {
-        val displayRegion = region ?: "테스트 지역"
-        val t = placeType ?: "갯바위"
-        val payload = basePayload(
-            type = "accident_test",
-            region = displayRegion,
-            placeType = t,
-            accidents = accidents,
-            message = "테스트 사고 알림 - ${eunneun(t)} 위험 주의"
-        )
-        sendToWatch(context, payload, dryRun)
-        payload
+    fun sendTestAlert(context: Context) {
+        val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(Date())
+
+        val json = JSONObject().apply {
+            put("type", "accident_test")
+            put("region", "테스트 지역")
+            put("place_se", "갯바위")
+            put("accidents", 12)
+            put("message", "테스트 사고 알림 - 갯바위는 위험 주의")
+            put("timestamp", ts)
+        }
+
+        sendToWatch(context, json)
     }
 
     // -------- helpers --------
 
-    private suspend fun sendToWatch(context: Context, payload: JSONObject, dryRun: Boolean) {
-        if (dryRun) {
-            Log.d(TAG, "AccidentAlertTest: DRYRUN would send: $payload")
-            return
-        }
-
-        val nodes = try {
-            Wearable.getNodeClient(context).connectedNodes.await()
-        } catch (e: Exception) {
-            Log.e(TAG, "AccidentAlertTest: failed to get connected nodes", e)
-            emptyList()
-        }
-
-        if (nodes.isEmpty()) {
-            Log.w(TAG, "AccidentAlertTest: no connected watch; payload=$payload")
-            return
-        }
-
-        for (n in nodes) {
-            try {
-                Wearable.getMessageClient(context)
-                    .sendMessage(n.id, WATCH_PATH, payload.toString().toByteArray())
-                    .await()
-                Log.d(TAG, "AccidentAlertTest: SENT to ${n.displayName} (${n.id}) → $payload")
-            } catch (e: Exception) {
-                Log.e(TAG, "AccidentAlertTest: send FAILED to ${n.id}", e)
+    private fun sendToWatch(context: Context, payload: JSONObject) {
+        Wearable.getNodeClient(context).connectedNodes
+            .addOnSuccessListener { nodes: List<Node> ->
+                if (nodes.isEmpty()) {
+                    Log.w(TAG, "⚠️ no connected watch; payload=$payload")
+                }
+                nodes.forEach { node ->
+                    Wearable.getMessageClient(context)
+                        .sendMessage(node.id, WATCH_PATH, payload.toString().toByteArray())
+                        .addOnSuccessListener {
+                            Log.d(TAG, "✅ SENT to ${node.displayName} (${node.id}) → $payload")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e(TAG, "❌ send FAILED to ${node.id}", e)
+                        }
+                }
             }
-        }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "❌ failed to get connected nodes", e)
+            }
     }
 
     private fun basePayload(
@@ -177,23 +150,22 @@ object AccidentAlertManager {
         }
     }
 
-    private suspend fun regionFromLocationIO(context: Context, lat: Double, lon: Double): Pair<String, String> =
-        withContext(Dispatchers.IO) {
-            try {
-                val g = Geocoder(context, Locale.KOREA)
-                val list = g.getFromLocation(lat, lon, 1)
-                if (list.isNullOrEmpty()) "" to "" else {
-                    val a = list[0]
-                    val key = listOfNotNull(a.adminArea, a.locality, a.subLocality)
-                        .joinToString(" ")
-                        .trim()
-                    key to key
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "AccidentAlertTest: geocoder fail", e)
-                "" to ""
+    private fun regionFromLocation(context: Context, lat: Double, lon: Double): Pair<String, String> {
+        return try {
+            val g = Geocoder(context, Locale.KOREA)
+            val list = g.getFromLocation(lat, lon, 1)
+            if (list.isNullOrEmpty()) "" to "" else {
+                val a = list[0]
+                val key = listOfNotNull(a.adminArea, a.locality, a.subLocality)
+                    .joinToString(" ")
+                    .trim()
+                key to key
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ geocoder fail", e)
+            "" to ""
         }
+    }
 
     private fun hasJong(ch: Char): Boolean {
         val code = ch.code - 0xAC00
@@ -227,48 +199,5 @@ object AccidentAlertManager {
             .putString(KEY_LAST_TYPE, type)
             .apply()
         return true
-    }
-}
-
-/**
- * Optional: background worker that can trigger the same alert flow.
- * Input keys (Data):
- *  - "threshold" (Int)
- *  - "cooldownMinutes" (Int)
- *  - "dryRun" (Boolean)
- */
-class AccidentWorker(
-    private val ctx: Context,
-    params: WorkerParameters
-) : CoroutineWorker(ctx, params) {
-
-    companion object {
-        private const val TAG = "AccidentWorker"
-    }
-
-    override suspend fun doWork(): Result {
-        Log.d(TAG, "AccidentAlertTest: worker started")
-
-        return try {
-            val threshold = inputData.getInt("threshold", 10)
-            val cooldown = inputData.getInt("cooldownMinutes", 120)
-            val dryRun = inputData.getBoolean("dryRun", true)
-
-            // If you want to pass a lat/lon, add them to inputData and read here.
-            val payload = AccidentAlertManager.checkAndNotify(
-                context = ctx,
-                lat = null,
-                lon = null,
-                threshold = threshold,
-                cooldownMinutes = cooldown,
-                dryRun = dryRun
-            )
-
-            Log.d(TAG, "AccidentAlertTest: worker finished payload=$payload")
-            Result.success()
-        } catch (t: Throwable) {
-            Log.e(TAG, "AccidentAlertTest: worker failed", t)
-            Result.retry()
-        }
     }
 }

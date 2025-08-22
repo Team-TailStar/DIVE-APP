@@ -51,17 +51,16 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
        }
 
         // 테스트 알림 (원하면 주석 해제)
-        //TyphoonAlertManager.sendTestAlert(this@MainActivity)
+        TyphoonAlertManager.sendTestAlert(this@MainActivity)
         //WeatherAlertManager.sendTestAlert(this@MainActivity)
         //TideAlertManager.sendTestAlert(this@MainActivity)
         //AccidentAlertManager.sendTestAlert(this@MainActivity)
-
 
         // 주기 워커
         scheduleTyphoonWorker(this)
         scheduleWeatherWorker(this)
         scheduleTideWorker(this)
-        scheduleAccidentWorker(this) // ⬅️ 위험지역 워커
+        scheduleAccidentWorker(this)
     }
 
     private fun scheduleTyphoonWorker(context: Context) {
@@ -180,19 +179,6 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                 }
             }
 
-            // ⬇️ 위험지역 즉시 체크 요청 (워치에서 보내면 바로 알림)
-            "/request_accident_alert" -> {
-                Log.d("PhoneMsg", "AccidentAlertTest: /request_accident_alert received")
-                lifecycleScope.launch(Dispatchers.IO) {
-                    AccidentAlertManager.checkAndNotify(
-                        context = this@MainActivity,
-                        threshold = 10,
-                        cooldownMinutes = 0,  // 테스트 시 중복 제한 없애기
-                        dryRun = false        // true로 두면 전송 대신 로그만
-                    )
-                }
-            }
-
             "/response_heart_rate" -> {
                 Log.d("PhoneMsg", "📩 워치에서 심박수 수신")
                 try {
@@ -241,52 +227,6 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
             }
         }
     }
-
-    /*private fun debugAccidentOnce(
-        threshold: Int = 10,
-        dryRun: Boolean = true   // true면 워치로 실제 전송 안 하고 로그만 남김
-    ) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val coords = getCurrentLocation(this@MainActivity)
-                val (lat, lon) = coords ?: (37.5665 to 126.9780) // 서울 기본값
-
-                val payload = AccidentAlertManager.checkAndNotify(
-                    context = this@MainActivity,
-                    lat = lat,
-                    lon = lon,
-                    threshold = threshold,
-                    cooldownMinutes = 0, // 디버그 때는 쿨다운 무시
-                    dryRun = dryRun
-                )
-
-                if (payload != null) {
-                    Log.d("AccidentAlertTest", "debugAccidentOnce → $payload")
-                } else {
-                    Log.d("AccidentAlertTest", "debugAccidentOnce → no alert (below threshold / no data)")
-                }
-            } catch (e: Exception) {
-                Log.e("AccidentAlertTest", "ERR: ${e.message}", e)
-            }
-        }
-    }
-     */
-
-    private fun debugAccidentOnce(threshold: Int = 1, dryRun: Boolean = false) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val (lat, lon) = getCurrentLocation(this@MainActivity) ?: (37.5665 to 126.9780)
-            val payload = AccidentAlertManager.checkAndNotify(
-                context = this@MainActivity,
-                lat = lat,
-                lon = lon,
-                threshold = threshold,   // 1로 낮춰 강제 트리거
-                cooldownMinutes = 0,
-                dryRun = dryRun          // false면 워치로 실제 전송
-            )
-            Log.d("AccidentAlertTest", "debugAccidentOnce → $payload")
-        }
-    }
-
 
     @SuppressLint("MissingPermission")
     private fun responseCurrentLocation() {
