@@ -37,7 +37,8 @@
 
     <application
         android:name="${applicationName}"
-        android:label="dive_app"
+        android:label="바다친구"
+        android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true">
 
