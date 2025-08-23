@@ -21,6 +21,8 @@ import com.example.dive_app.api.TyphoonApi
 import com.example.dive_app.manager.TyphoonAlertManager
 import com.example.dive_app.manager.WeatherAlertManager
 import com.example.dive_app.manager.TideAlertManager
+import com.example.dive_app.manager.AccidentAlertManager
+import com.example.dive_app.manager.SlopeAlertManager
 import io.flutter.plugin.common.MethodChannel
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -31,8 +33,8 @@ import com.example.dive_app.worker.TyphoonWorker
 import com.example.dive_app.worker.WeatherWorker
 import com.example.dive_app.worker.TideWorker
 import com.example.dive_app.worker.AccidentWorker
+import com.example.dive_app.worker.SlopeWorker
 import com.example.dive_app.util.getCurrentLocation
-import com.example.dive_app.manager.AccidentAlertManager
 import androidx.work.WorkInfo
 import androidx.work.WorkQuery
 
@@ -57,6 +59,7 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                 WeatherAlertManager.checkWeatherAlert(this@MainActivity, lat, lon)
                 TideAlertManager.checkTideAlert(this@MainActivity, lat, lon)
                 AccidentAlertManager.checkAndNotify(this@MainActivity, lat, lon)
+                SlopeAlertManager.checkAndNotify(this@MainActivity, lat, lon)
            }
        }
 
@@ -64,13 +67,15 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         //TyphoonAlertManager.sendTestAlert(this@MainActivity)
         //WeatherAlertManager.sendTestAlert(this@MainActivity)
         //TideAlertManager.sendTestAlert(this@MainActivity)
-        AccidentAlertManager.sendTestAlert(this@MainActivity)
+        //AccidentAlertManager.sendTestAlert(this@MainActivity)
+        SlopeAlertManager.sendTestAlert(this@MainActivity)
 
         // 주기 워커
         scheduleTyphoonWorker(this)
         scheduleWeatherWorker(this)
         scheduleTideWorker(this)
         scheduleAccidentWorker(this)
+        scheduleSlopeWorker(this)
 
         val workManager = WorkManager.getInstance(context)
 
@@ -114,6 +119,15 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
         val request = PeriodicWorkRequestBuilder<AccidentWorker>(1, TimeUnit.HOURS).build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "AccidentCheck",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
+    }
+
+    private fun scheduleSlopeWorker(context: Context) {
+        val request = PeriodicWorkRequestBuilder<SlopeWorker>(1, TimeUnit.HOURS).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "SlopeCheck",
             ExistingPeriodicWorkPolicy.UPDATE,
             request
         )
