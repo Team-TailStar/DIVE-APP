@@ -14,18 +14,12 @@ import java.util.*
 import kotlin.math.max
 
 object AccidentAlertManager {
-    private const val TAG = "AccidentAlertManager"
-    private const val WATCH_PATH = "/accident_alert"
-
-    // simple spam control
     private const val PREFS = "accident_alert_prefs"
     private const val KEY_LAST_AT = "last_at"
     private const val KEY_LAST_REGION = "last_region"
     private const val KEY_LAST_TYPE = "last_type"
 
-    /**
-     * 실제 사고 정보 확인 후 알림 전송
-     */
+    /** 사고 데이터 확인 후 조건 만족 시 알림 전송 */
     suspend fun checkAndNotify(
         context: Context,
         lat: Double? = null,
@@ -36,22 +30,26 @@ object AccidentAlertManager {
         try {
             CoastalAccidentRepo.ensureLoaded(context)
 
+            // 현재 위치 확인 (없으면 서울 시청 좌표 fallback)
             val coords = lat?.let { it to requireNotNull(lon) } ?: getCurrentLocation(context)
             val (useLat, useLon) = coords ?: (37.5665 to 126.9780)
 
+            // 위치 기반 지역명 추출
             val (regionKey, displayRegion) = regionFromLocation(context, useLat, useLon)
             if (regionKey.isBlank()) {
-                Log.w(TAG, "⚠️ empty region (lat=$useLat, lon=$useLon)")
+                Log.w("AccidentAlertManager", "⚠️ empty region (lat=$useLat, lon=$useLon)")
                 return
             }
 
+            // 지역별 사고 통계 조회
             val json = CoastalAccidentRepo.queryByRegion(regionKey, null)
             val byType = json.optJSONObject("summary")?.optJSONArray("by_type") ?: JSONArray()
             if (byType.length() == 0) {
-                Log.d(TAG, "no rows for $regionKey ($displayRegion)")
+                Log.d("AccidentAlertManager", "no rows for $regionKey ($displayRegion)")
                 return
             }
 
+            // 최다 사고 장소 유형 선택
             var topType = ""
             var topAcc = 0
             for (i in 0 until byType.length()) {
@@ -63,18 +61,21 @@ object AccidentAlertManager {
                 }
             }
 
-            Log.d(TAG, "region=$displayRegion topType=$topType topAcc=$topAcc")
+            Log.d("AccidentAlertManager", "region=$displayRegion topType=$topType topAcc=$topAcc")
 
+            // 임계값 미만이면 무시
             if (topAcc < threshold) {
-                Log.d(TAG, "below threshold $topAcc < $threshold @ $displayRegion")
+                Log.d("AccidentAlertManager", "below threshold $topAcc < $threshold @ $displayRegion")
                 return
             }
 
+            // 쿨다운 확인
             if (!checkCooldown(context, displayRegion, topType, cooldownMinutes)) {
-                Log.d(TAG, "cooldown active for $displayRegion / $topType")
+                Log.d("AccidentAlertManager", "cooldown active for $displayRegion / $topType")
                 return
             }
 
+            // 최종 알림 전송
             val title = "연안사고 위험 알림"
             val message = "${displayRegion} · ${topType} (사고 ${topAcc}건)\n안전에 주의하세요."
 
@@ -85,66 +86,45 @@ object AccidentAlertManager {
             sendToWatch(context, payload)
 
         } catch (e: Exception) {
-            Log.e(TAG, "❌ checkAndNotify failed", e)
+            Log.e("AccidentAlertManager", "❌ checkAndNotify failed", e)
         }
     }
 
-    /**
-     * 수동 테스트 알림 전송
-     */
+    /** 수동 테스트 알림 */
     fun sendTestAlert(context: Context) {
-        val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(Date())
-
         val json = JSONObject().apply {
             put("title", "연안사고 위험 알림")
             put("message", "부산 해운대구 · 갯바위 (사고 12건)\n안전에 주의하세요.")
         }
-
         sendToWatch(context, json)
     }
 
     // -------- helpers --------
 
+    /** 워치로 알림 전송 */
     private fun sendToWatch(context: Context, payload: JSONObject) {
         Wearable.getNodeClient(context).connectedNodes
             .addOnSuccessListener { nodes: List<Node> ->
                 if (nodes.isEmpty()) {
-                    Log.w(TAG, "⚠️ no connected watch; payload=$payload")
+                    Log.w("AccidentAlertManager", "⚠️ no connected watch; payload=$payload")
                 }
                 nodes.forEach { node ->
                     Wearable.getMessageClient(context)
-                        .sendMessage(node.id, WATCH_PATH, payload.toString().toByteArray())
+                        .sendMessage(node.id, "/accident_alert", payload.toString().toByteArray())
                         .addOnSuccessListener {
-                            Log.d(TAG, "✅ SENT to ${node.displayName} (${node.id}) → $payload")
+                            Log.d("AccidentAlertManager", "✅ SENT to ${node.displayName} (${node.id}) → $payload")
                         }
                         .addOnFailureListener { e ->
-                            Log.e(TAG, "❌ send FAILED to ${node.id}", e)
+                            Log.e("AccidentAlertManager", "❌ send FAILED to ${node.id}", e)
                         }
                 }
             }
             .addOnFailureListener { e ->
-                Log.e(TAG, "❌ failed to get connected nodes", e)
+                Log.e("AccidentAlertManager", "❌ failed to get connected nodes", e)
             }
     }
 
-    private fun basePayload(
-        type: String,
-        region: String,
-        placeType: String,
-        accidents: Int,
-        message: String
-    ): JSONObject {
-        val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(Date())
-        return JSONObject().apply {
-            put("type", type)
-            put("region", region)
-            put("place_se", placeType)
-            put("accidents", accidents)
-            put("message", message)
-            put("timestamp", ts)
-        }
-    }
-
+    /** 위도·경도 → 행정구역 문자열 */
     private fun regionFromLocation(context: Context, lat: Double, lon: Double): Pair<String, String> {
         return try {
             val g = Geocoder(context, Locale.KOREA)
@@ -157,21 +137,12 @@ object AccidentAlertManager {
                 key to key
             }
         } catch (e: Exception) {
-            Log.w(TAG, "⚠️ geocoder fail", e)
+            Log.w("AccidentAlertManager", "⚠️ geocoder fail", e)
             "" to ""
         }
     }
 
-    private fun hasJong(ch: Char): Boolean {
-        val code = ch.code - 0xAC00
-        return code in 0 until 11172 && (code % 28) != 0
-    }
-
-    private fun eunneun(noun: String): String {
-        val c = noun.lastOrNull() ?: return "는"
-        return noun + if (hasJong(c)) "은" else "는"
-    }
-
+    /** 알림 중복 방지 (쿨다운) */
     private fun checkCooldown(
         context: Context,
         region: String,
