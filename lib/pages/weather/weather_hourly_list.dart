@@ -14,7 +14,6 @@ class WeatherHourlyList extends StatelessWidget {
     if (all.isEmpty) return _emptyBox('예보 정보가 없습니다.');
 
     final dfHour = DateFormat('HH:mm');
-    final dfDay = DateFormat('M월 d일 (E)', 'ko_KR');
     final items = _filterByTab(all, tab);
     if (items.isEmpty) return _emptyBox('예보 정보가 없습니다.');
 
@@ -35,13 +34,6 @@ class WeatherHourlyList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Text('Today', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-            const Spacer(),
-            Text(dfDay.format(items.first.time), style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12)),
-          ],
-        ),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(12),

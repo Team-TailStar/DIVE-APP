@@ -76,7 +76,7 @@ class _DummyRegionPage extends StatelessWidget {
 }
 
 class _WeatherAutoPage extends StatelessWidget {
-  const _WeatherAutoPage({super.key});
+  const _WeatherAutoPage();
 
   Future<Position> _getPosition() async {
     final enabled = await Geolocator.isLocationServiceEnabled();

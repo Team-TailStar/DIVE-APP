@@ -71,7 +71,7 @@ class AirQualityService {
 
     final picked = _pickBestStation(stations);
 
-    String _labelFromGrade(String? code) {
+    String labelFromGrade(String? code) {
       switch ((code ?? '').trim()) {
         case '1': return '좋음';
         case '2': return '보통';
@@ -81,7 +81,7 @@ class AirQualityService {
       }
     }
 
-    bool _isOkFlag(String? f) {
+    bool isOkFlag(String? f) {
       final t = (f ?? '').trim();
       if (t.isEmpty) return true;                   // 빈 값은 정상 취급(실무에서 자주 비움)
       if (t == '1') return true;
@@ -90,31 +90,31 @@ class AirQualityService {
       return true;
     }
 
-    ({String label, String? value}) _compute({
+    ({String label, String? value}) compute({
       required String? flag,
       required String? grade,
       String? grade1h,
       String? value,
       required bool isDust,
     }) {
-      if (!_isOkFlag(flag)) return (label: '정보없음', value: null);
+      if (!isOkFlag(flag)) return (label: '정보없음', value: null);
       final g = isDust ? (grade ?? grade1h) : grade;
-      return (label: _labelFromGrade(g), value: _cleanVal(value));
+      return (label: labelFromGrade(g), value: _cleanVal(value));
     }
 
-    final pm10C = _compute(
+    final pm10C = compute(
       flag: picked.pm10Flag, grade: picked.pm10Grade, grade1h: picked.pm10Grade1h,
       value: picked.pm10Value, isDust: true,
     );
-    final pm25C = _compute(
+    final pm25C = compute(
       flag: picked.pm25Flag, grade: picked.pm25Grade, grade1h: picked.pm25Grade1h,
       value: picked.pm25Value, isDust: true,
     );
-    final o3C = _compute(
+    final o3C = compute(
       flag: picked.o3Flag, grade: picked.o3Grade, grade1h: null,
       value: picked.o3Value, isDust: false,
     );
-    final no2C = _compute(
+    final no2C = compute(
       flag: picked.no2Flag, grade: picked.no2Grade, grade1h: null,
       value: picked.no2Value, isDust: false,
     );

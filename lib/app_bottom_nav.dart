@@ -1,4 +1,3 @@
-import 'package:dive_app/main.dart';
 import 'package:dive_app/pages/fishing_point/fishing_point_main.dart';
 import 'package:dive_app/pages/watch_connect/watch_connection_page.dart';
 import 'package:dive_app/pages/sea_weather/sea_weather.dart';
@@ -11,37 +10,59 @@ class AppBottomNav extends StatelessWidget {
   const AppBottomNav({super.key, required this.currentIndex});
   final int currentIndex;
 
+  // No animation on route change
   void _goReplace(BuildContext context, Widget page) {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => page),
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => page,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // 파란색 계열 통일
     const blue = Colors.blue;
+    final theme = Theme.of(context);
 
     return Theme(
-      data: Theme.of(context).copyWith(
-        // 탭 리플/하이라이트도 파란색으로
-        splashColor: blue.withOpacity(0.20),
-        highlightColor: blue.withOpacity(0.10),
-        colorScheme: Theme.of(context).colorScheme.copyWith(
-          primary: blue, // M3 리플/상태색에 주로 사용
+      data: theme.copyWith(
+        splashFactory: NoSplash.splashFactory,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        colorScheme: theme.colorScheme.copyWith(
+          primary: blue,
           secondary: blue,
         ),
-        bottomNavigationBarTheme: Theme.of(context).bottomNavigationBarTheme.copyWith(
+        bottomNavigationBarTheme: theme.bottomNavigationBarTheme.copyWith(
+          backgroundColor: Colors.white, // ✅ 흰색 배경
+          elevation: 0,                  // ✅ 그림자 제거
           selectedItemColor: blue,
           unselectedItemColor: Colors.grey,
+          showSelectedLabels: true,
+          showUnselectedLabels: true,
+          type: BottomNavigationBarType.fixed,
+          selectedIconTheme: const IconThemeData(size: 24),
+          unselectedIconTheme: const IconThemeData(size: 24),
+          selectedLabelStyle: const TextStyle(fontSize: 12),
+          unselectedLabelStyle: const TextStyle(fontSize: 12),
         ),
       ),
       child: BottomNavigationBar(
-        currentIndex: currentIndex,
+        backgroundColor: Colors.white, // ✅ 흰색 배경
+        elevation: 0,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: blue,            // 아이콘/라벨 선택 색상
-        unselectedItemColor: Colors.grey,   // 비선택 색상
-        selectedIconTheme: const IconThemeData(size: 26), // 살짝 강조(옵션)
+        currentIndex: currentIndex,
+        selectedItemColor: blue,
+        unselectedItemColor: Colors.grey,
+        selectedIconTheme: const IconThemeData(size: 24),
+        unselectedIconTheme: const IconThemeData(size: 24),
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        showUnselectedLabels: true,
+        enableFeedback: false,
         onTap: (i) async {
           if (i == currentIndex) return;
 
@@ -51,24 +72,17 @@ class AppBottomNav extends StatelessWidget {
               if (pos == null) return;
               _goReplace(context, WeatherPage(lat: pos.latitude, lon: pos.longitude));
               break;
-
-            case 1: // SeaWeatherPage
+            case 1:
               _goReplace(context, const SeaWeatherPage());
               break;
-
             case 2:
               _goReplace(context, const TidePage());
               break;
-
             case 3:
               _goReplace(context, const FishingPointMainPage());
               break;
-
             case 4:
               _goReplace(context, const WatchConnectPage());
-              break;
-
-            default:
               break;
           }
         },

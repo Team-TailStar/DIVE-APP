@@ -32,6 +32,8 @@ class AqCard extends StatelessWidget {
   final Widget? trailing;   // 우상단 액션(리프레시/아이콘)
   final String? subtitle;   // "서울"
   final EdgeInsetsGeometry? padding;
+  final double? radius;
+
   const AqCard({
     super.key,
     required this.child,
@@ -39,6 +41,7 @@ class AqCard extends StatelessWidget {
     this.trailing,
     this.subtitle,
     this.padding,
+    this.radius,
   });
 
   @override

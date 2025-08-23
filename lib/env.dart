@@ -30,19 +30,19 @@ class Env {
     // ✔︎ 경로 확인 (아래 참고)
     final raw = await rootBundle.loadString('assets/env.json');
     final j = json.decode(raw) as Map<String, dynamic>;
-    String _s(dynamic v, {String or = ''}) => (v ?? or).toString().trim();
-    bool _b(dynamic v, {bool or = false}) {
+    String s0(dynamic v, {String or = ''}) => (v ?? or).toString().trim();
+    bool b(dynamic v, {bool or = false}) {
       if (v is bool) return v;
       final s = v?.toString().trim().toLowerCase();
       return s == 'true' ? true : s == 'false' ? false : or;
     }
 
-    AIRKOREA_SERVICE_KEY = _s(j['AIRKOREA_SERVICE_KEY']);
-    API_BASE_URL         = _s(j['API_BASE_URL']);
-    BADA_SERVICE_KEY     = _s(j['BADA_SERVICE_KEY']);
-    USE_TIDE_MOCK        = _b(j['USE_TIDE_MOCK']);
-    IMAGE_BASE_URL       = _s(j['IMAGE_BASE_URL']);
-    BDAD_TIME_IMAGE_URL  = _s(j['BDAD_TIME_IMAGE_URL']);
+    AIRKOREA_SERVICE_KEY = s0(j['AIRKOREA_SERVICE_KEY']);
+    API_BASE_URL         = s0(j['API_BASE_URL']);
+    BADA_SERVICE_KEY     = s0(j['BADA_SERVICE_KEY']);
+    USE_TIDE_MOCK        = b(j['USE_TIDE_MOCK']);
+    IMAGE_BASE_URL       = s0(j['IMAGE_BASE_URL']);
+    BDAD_TIME_IMAGE_URL  = s0(j['BDAD_TIME_IMAGE_URL']);
     _loaded = true;
   }
 

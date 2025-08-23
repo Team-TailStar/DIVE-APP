@@ -3,7 +3,6 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter/services.dart';
 import 'pages/ui/aq_theme.dart';
-import 'pages/ui/aq_widget.dart';
 import 'routes.dart';
 import 'env.dart';
 
@@ -24,13 +23,11 @@ void main() async {
     clientId: 'vwykpurwuk',
     onAuthFailed: (ex) {
       switch (ex) {
-        case NQuotaExceededException(:final message):
-          print("❌ 네이버 지도 사용량 초과 (message: $message)");
+        case NQuotaExceededException():
           break;
         case NUnauthorizedClientException() ||
         NClientUnspecifiedException() ||
         NAnotherAuthFailedException():
-          print("❌ 네이버 지도 인증 실패: $ex");
           break;
       }
     },
@@ -89,19 +86,15 @@ class WearChannel {
   static void init() {
     _channel.setMethodCallHandler((call) async {
       if (call.method == "requestWeather") {
-        print("📩 Android → Flutter: requestWeather 호출됨");
         await testSendWeather();
       }
     });
   }
 
   static Future<void> sendWeather(Map<String, dynamic> weather) async {
-    print("📤 Flutter → Android: sendWeather 전송 시도");
     try {
       await _channel.invokeMethod("sendWeather", weather);
-      print("✅ Flutter → Android: sendWeather 전송 성공");
-    } on PlatformException catch (e) {
-      print("❌ Flutter → Android: sendWeather 전송 실패: ${e.message}");
+    } on PlatformException {
     }
   }
 }

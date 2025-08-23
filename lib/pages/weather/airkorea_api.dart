@@ -91,27 +91,27 @@ class AirQuality {
   });
 
   factory AirQuality.fromJson(Map<String, dynamic> j) {
-    String? _str(dynamic v) =>
+    String? str(dynamic v) =>
         (v == null || (v is String && v.trim().isEmpty)) ? null : v.toString();
 
     return AirQuality(
       dataTime: j['dataTime']?.toString() ?? '',
-      o3Value: _str(j['o3Value']),
-      no2Value: _str(j['no2Value']),
-      pm10Value: _str(j['pm10Value']),
-      pm25Value: _str(j['pm25Value']),
-      o3Grade: _str(j['o3Grade']),
-      no2Grade: _str(j['no2Grade']),
-      pm10Grade: _str(j['pm10Grade']),
-      pm25Grade: _str(j['pm25Grade']),
-      pm10Grade1h: _str(j['pm10Grade1h']),
-      pm25Grade1h: _str(j['pm25Grade1h']),
-      o3Flag: _str(j['o3Flag']),
-      no2Flag: _str(j['no2Flag']),
-      pm10Flag: _str(j['pm10Flag']),
-      pm25Flag: _str(j['pm25Flag']),
-      stationName: _str(j['stationName']),
-      sidoName: _str(j['sidoName']),
+      o3Value: str(j['o3Value']),
+      no2Value: str(j['no2Value']),
+      pm10Value: str(j['pm10Value']),
+      pm25Value: str(j['pm25Value']),
+      o3Grade: str(j['o3Grade']),
+      no2Grade: str(j['no2Grade']),
+      pm10Grade: str(j['pm10Grade']),
+      pm25Grade: str(j['pm25Grade']),
+      pm10Grade1h: str(j['pm10Grade1h']),
+      pm25Grade1h: str(j['pm25Grade1h']),
+      o3Flag: str(j['o3Flag']),
+      no2Flag: str(j['no2Flag']),
+      pm10Flag: str(j['pm10Flag']),
+      pm25Flag: str(j['pm25Flag']),
+      stationName: str(j['stationName']),
+      sidoName: str(j['sidoName']),
     );
   }
 }

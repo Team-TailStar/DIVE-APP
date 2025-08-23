@@ -60,7 +60,7 @@ class _FishingPointDetailPageState extends State<FishingPointDetailPage> {
       }
 
       final decoded = utf8.decode(res.bodyBytes);
-      final root = jsonDecode(decoded);
+      jsonDecode(decoded);
 
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       final info = (j['info'] as Map).cast<String, dynamic>();
@@ -136,18 +136,29 @@ class _FishingPointDetailPageState extends State<FishingPointDetailPage> {
       appBar: AppBar(
         elevation: 0,
         centerTitle: true,
+        backgroundColor: const Color(0xFF7BB8FF), // ← SeaWeather와 동일한 파랑
+        surfaceTintColor: Colors.transparent,      // ← M3 틴트 제거
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: Text(
           widget.point.name.isNotEmpty ? widget.point.name : '낚시포인트',
           maxLines: 1,
-          overflow: TextOverflow.ellipsis,   // 길면 … 처리
-          style: const TextStyle(fontWeight: FontWeight.w800),
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
         ),
+        iconTheme: const IconThemeData(color: Colors.white), // AppBar 내부 아이콘 기본 흰색
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchInfo,
+            color: Colors.grey,
             tooltip: '새로고침',
-          )
+          ),
         ],
       ),
       body: SafeArea(
@@ -304,6 +315,8 @@ class _PointMapState extends State<_PointMap> {
                 icon: const Icon(Icons.directions),
                 label: const Text('길찾기'),
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.lightBlue,
+                  foregroundColor: Colors.white,
                   padding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   shape: RoundedRectangleBorder(
